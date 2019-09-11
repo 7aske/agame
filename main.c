@@ -260,43 +260,65 @@ char* generate_lvl() {
 }
 
 void generate_rooms(char* lvl, int lvlw, int lvlh) {
+	srandom(time(NULL));
 	int rmax = 6;
 	int rmin = 3;
 
 	int num_rooms = 10;
 
-	for (int y = 1; y < 4; ++y) {
-		for (int x = 1; x < 4; ++x) {
+	for (int y = 1; y < rmin; ++y) {
+		for (int x = 1; x < rmin; ++x) {
 			lvl[y * lvlw + x] = 32;
 		}
 	}
-	int conn[2] = {3, 3};
 
-	srandom(time(NULL));
+	int roots[WRLD_H][WRLD_W][num_rooms][2];
+
 	for (int row = 0; row < WRLD_H; ++row) {
 		for (int col = 0; col < WRLD_W; ++col) {
-			int roots[num_rooms][2];
 			for (int i = 0; i < num_rooms; ++i) {
 				int rx = (int) random() % (SCR_W - rmax - 1) + 1 + SCR_W * col;
 				int ry = (int) random() % (SCR_H - rmax - 1) + 1 + SCR_H * row;
 				int rw = (int) (random() % (rmax - rmin)) + rmin;
 				int rh = (int) (random() % (rmax - rmin)) + rmin;
-				roots[i][0] = rx;
-				roots[i][1] = ry;
-				printt(rx, ry);
-				printt(rw, rh);
+				roots[row][col][i][0] = rx;
+				roots[row][col][i][1] = ry;
 				for (int y = ry; y < ry + rh; ++y) {
 					for (int x = rx; x < rx + rw; ++x) {
 						lvl[y * lvlw + x] = 32;
 					}
 				}
 			}
-			carve_path(lvl, lvlw, lvlh, conn[0], conn[1], roots[0][0], roots[0][1]);
-			for (int j = 0; j < num_rooms - 1; ++j) {
-				carve_path(lvl, lvlw, lvlh, roots[j][0], roots[j][1], roots[j + 1][0], roots[j + 1][1]);
+			if (col == 0 && row == 0) {
+				carve_path(lvl, lvlw, lvlh, rmin - 1, rmin - 1, roots[row][col][0][0], roots[row][col][0][1]);
 			}
-			conn[0] = roots[num_rooms - 1][0];
-			conn[1] = roots[num_rooms - 1][1];
+		}
+	}
+
+	for (int row = 0; row < WRLD_H; ++row) {
+		for (int col = 0; col < WRLD_W; ++col) {
+			// carve paths between neighbouring rooms
+			for (int j = 0; j < num_rooms - 1; ++j) {
+				carve_path(lvl, lvlw, lvlh, roots[row][col][j][0], roots[row][col][j][1], roots[row][col][j + 1][0],
+						   roots[row][col][j + 1][1]);
+			}
+
+			// carve paths between neighbouring sections
+			if (row > 0) {
+				carve_path(lvl, lvlw, lvlh,
+						   roots[row - 1][col][num_rooms - 1][0],
+						   roots[row - 1][col][num_rooms - 1][1],
+						   roots[row][col][0][0],
+						   roots[row][col][0][1]);
+			}
+			if (col > 0) {
+				carve_path(lvl, lvlw, lvlh,
+						   roots[row][col - 1][num_rooms - 1][0],
+						   roots[row][col - 1][num_rooms - 1][1],
+						   roots[row][col][0][0],
+						   roots[row][col][0][1]);
+			}
+
 		}
 	}
 
