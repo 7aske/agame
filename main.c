@@ -15,16 +15,20 @@
 #define DSIZE 32
 
 // blocks count in the viewport
-#define S_WIDTH (WIDTH / DSIZE)
-#define S_HEIGHT (HEIGHT / DSIZE)
+#define SCR_W (WIDTH / DSIZE)
+#define SCR_H (HEIGHT / DSIZE)
 
-#define LVL_W 3 * S_WIDTH
-#define LVL_H 2 * S_HEIGHT
+#define WRLD_W 3
+#define WRLD_H 2
 
+#define LVL_W (WRLD_W * SCR_W)
+#define LVL_H (WRLD_H * SCR_H)
+
+#define printd(x) printf("%d\n")
 #define printt(x, y) printf("(%d, %d)\n", x, y)
 #define printlvl(lvl) if(lvl != NULL)\
 for (int y = 0; y < LVL_H; ++y){\
-for (int x = 0; x < LVL_W; ++x) putc(lvl[y * LVL_W + x], stdout);\
+for (int x = 0; x < LVL_W; ++x) putc(lvl[y * LVL_W + x] == '#' ? (char)178 : ' ', stdout);\
 putc('\n', stdout);}\
 
 typedef struct player {
@@ -47,6 +51,8 @@ void game_loop(player_t*);
 void render_loop(player_t*);
 
 char* generate_lvl();
+
+void carve_path(char*, int, int, int, int, int, int);
 
 void generate_rooms(char*, int, int);
 
@@ -104,12 +110,12 @@ int main(int argc, char* args[]) {
 		game_loop(&player);
 
 
-		int xoff = (int) (player.x / S_WIDTH) * S_WIDTH;
-		int yoff = (int) (player.y / S_HEIGHT) * S_HEIGHT;
+		int xoff = (int) (player.x / SCR_W) * SCR_W;
+		int yoff = (int) (player.y / SCR_H) * SCR_H;
 		// printt(player.x, player.y);
 		// printt(xoff, yoff);
-		for (int y = 0; y < S_HEIGHT; ++y) {
-			for (int x = 0; x < S_WIDTH; ++x) {
+		for (int y = 0; y < SCR_H; ++y) {
+			for (int x = 0; x < SCR_W; ++x) {
 				SDL_Rect dest;
 				SDL_Rect src;
 				dest.h = DSIZE;
@@ -122,6 +128,9 @@ int main(int argc, char* args[]) {
 						break;
 					case ' ':
 						query_sprite(SPR_FLOOR, &src);
+						break;
+					case 'B':
+						query_sprite(SPR_LFLOOR, &src);
 						break;
 
 				}
@@ -176,8 +185,13 @@ void event_handler(SDL_Event* ev, player_t* player) {
 				case SDL_SCANCODE_DOWN:
 				case SDL_SCANCODE_D:
 				case SDL_SCANCODE_RIGHT:
-					printf("%d\n", ev->key.keysym.scancode);
+					// printf("%d\n", ev->key.keysym.scancode);
 					player_move(player, ev->key.keysym.scancode);
+					break;
+				case SDL_SCANCODE_R:
+					free(level0);
+					level0 = generate_lvl();
+					break;
 			}
 			break;
 	}
@@ -187,27 +201,27 @@ void player_move(player_t* player, SDL_Scancode code) {
 	switch (code) {
 		case SDL_SCANCODE_W:
 		case SDL_SCANCODE_UP:
-			// if (level0[((player->y - 1) * LVL_W) + player->x] != '#') {
-			player->y -= 1;
-			// }
+			if (level0[((player->y - 1) * LVL_W) + player->x] != '#') {
+				player->y -= 1;
+			}
 			break;
 		case SDL_SCANCODE_A:
 		case SDL_SCANCODE_LEFT:
-			// if (level0[(player->y * LVL_W) + player->x - 1] != '#') {
-			player->x -= 1;
-			// }
+			if (level0[(player->y * LVL_W) + player->x - 1] != '#') {
+				player->x -= 1;
+			}
 			break;
 		case SDL_SCANCODE_S:
 		case SDL_SCANCODE_DOWN:
-			// if (level0[((player->y + 1) * LVL_W) + player->x] != '#') {
-			player->y += 1;
-			// }
+			if (level0[((player->y + 1) * LVL_W) + player->x] != '#') {
+				player->y += 1;
+			}
 			break;
 		case SDL_SCANCODE_D:
 		case SDL_SCANCODE_RIGHT:
-			// if (level0[(player->y * LVL_W) + player->x + 1] != '#') {
-			player->x += 1;
-			// }
+			if (level0[(player->y * LVL_W) + player->x + 1] != '#') {
+				player->x += 1;
+			}
 			break;
 		default:
 			break;
@@ -230,52 +244,80 @@ void render_loop(player_t* player) {
 
 
 char* generate_lvl() {
-	int lvl_h = LVL_H;
-	int lvl_w = LVL_W;
-	char* lvl = (char*) malloc(lvl_h * lvl_w);
-	memset(lvl, 35, lvl_h * lvl_w);
-	for (int y = 0; y < lvl_h; ++y) {
-		for (int x = 0; x < lvl_w; ++x) {
-			if (x == 0 || y == 0 || x == lvl_w - 1 || y == lvl_h - 1) {
-				lvl[y * lvl_w + x] = 35;
-			} else if (y % (S_HEIGHT / 3) == 0 && y % S_HEIGHT != 0) {
-				lvl[y * lvl_w + x] = 32;
-			} else if (x % (S_WIDTH / 4) == 0 && x % S_WIDTH != 0) {
-				lvl[y * lvl_w + x] = 32;
+	int lvlh = LVL_H;
+	int lvlw = LVL_W;
+	char* lvl = (char*) malloc(lvlh * lvlw);
+	memset(lvl, 35, lvlh * lvlw);
+	for (int y = 0; y < lvlh; ++y) {
+		for (int x = 0; x < lvlw; ++x) {
+			if (x == 0 || y == 0 || x == lvlw - 1 || y == lvlh - 1) {
+				lvl[y * lvlw + x] = 35;
 			}
 		}
 	}
-	generate_rooms(lvl, lvl_w, lvl_h);
+	generate_rooms(lvl, lvlw, lvlh);
 	return lvl;
 }
 
 void generate_rooms(char* lvl, int lvlw, int lvlh) {
-	int rwmax = 14;
-	int rwmin = 4;
-	int rhmax = 14;
-	int rhmin = 4;
+	int rmax = 6;
+	int rmin = 3;
 
-	int num_rooms = 12;
+	int num_rooms = 10;
 
-	// for (int i = 0; i < num_rooms; ++i) {
-	// 	int rx = S_WIDTH * (i % 2) + 1;
-	// 	int ry = S_HEIGHT * (i % 6) + 1;
-	// 	int rw = (rand() % (rwmax - rwmin)) + rwmin;
-	// 	int rh = (rand() % (rhmax - rhmin)) + rhmin;
-	// 	printt(rx, ry);
-	// 	printt(rw, rh);
-	// 	for (int y = ry; y < ry + rh; ++y) {
-	// 		for (int x = rx; x < rx + rw; ++x) {
-	// 			if (x == rx || y == ry || x == rx + rw - 1 || y == ry + rh - 1) {
-	// 				lvl[y * lvlw + x] = 35;
-	// 			} else {
-	// 				lvl[y * lvlw + x] = 32;
-	// 			}
-	// 		}
-	// 	}
-	// }
+	for (int y = 1; y < 4; ++y) {
+		for (int x = 1; x < 4; ++x) {
+			lvl[y * lvlw + x] = 32;
+		}
+	}
+	int conn[2] = {3, 3};
 
+	srandom(time(NULL));
+	for (int row = 0; row < WRLD_H; ++row) {
+		for (int col = 0; col < WRLD_W; ++col) {
+			int roots[num_rooms][2];
+			for (int i = 0; i < num_rooms; ++i) {
+				int rx = (int) random() % (SCR_W - rmax - 1) + 1 + SCR_W * col;
+				int ry = (int) random() % (SCR_H - rmax - 1) + 1 + SCR_H * row;
+				int rw = (int) (random() % (rmax - rmin)) + rmin;
+				int rh = (int) (random() % (rmax - rmin)) + rmin;
+				roots[i][0] = rx;
+				roots[i][1] = ry;
+				printt(rx, ry);
+				printt(rw, rh);
+				for (int y = ry; y < ry + rh; ++y) {
+					for (int x = rx; x < rx + rw; ++x) {
+						lvl[y * lvlw + x] = 32;
+					}
+				}
+			}
+			carve_path(lvl, lvlw, lvlh, conn[0], conn[1], roots[0][0], roots[0][1]);
+			for (int j = 0; j < num_rooms - 1; ++j) {
+				carve_path(lvl, lvlw, lvlh, roots[j][0], roots[j][1], roots[j + 1][0], roots[j + 1][1]);
+			}
+			conn[0] = roots[num_rooms - 1][0];
+			conn[1] = roots[num_rooms - 1][1];
+		}
+	}
 
 	printlvl(lvl)
+}
+
+void carve_path(char* map, int mapw, int maph, int sx, int sy, int dx, int dy) {
+	int cx = sx, cy = sy;
+
+	while (cx != dx || cy != dy) {
+		if (cx < dx) {
+			cx++;
+		} else if (cx > dx) {
+			cx--;
+		} else if (cy < dy) {
+			cy++;
+		} else if (cy > dy) {
+			cy--;
+		}
+
+		map[cy * mapw + cx] = ' ';
+	}
 }
 
