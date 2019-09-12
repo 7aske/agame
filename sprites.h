@@ -11,6 +11,7 @@ typedef enum {
 	SPR_WALL = 2,
 	SPR_LFLOOR = 3,
 	SPR_COIN = 4,
+	SPR_ENEMY1 = 5,
 } SPRITES;
 
 void query_sprite(SPRITES spr, SDL_Rect* src) {
@@ -36,6 +37,10 @@ void query_sprite(SPRITES spr, SDL_Rect* src) {
 		case SPR_COIN:
 			src->x = 0;
 			src->y = 5 * 16;
+			break;
+		case SPR_ENEMY1:
+			src->x = 0;
+			src->y = 6 * 16;
 			break;
 		default:
 			src->x = 0;

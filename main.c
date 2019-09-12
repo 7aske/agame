@@ -42,7 +42,19 @@ typedef struct player {
 	uint32_t x;
 	uint32_t y;
 	move_dir last_move;
+	uint32_t dmg;
 } player_t;
+
+typedef struct enemy {
+	uint32_t x;
+	uint32_t y;
+	int32_t hp;
+} enemy_t;
+
+typedef struct enemies {
+	enemy_t* e;
+	uint32_t count;
+} enemies_t;
 
 void sig_handler(int);
 
@@ -50,15 +62,19 @@ void sdlerr_handler();
 
 void quit();
 
-void event_handler(SDL_Event*, player_t*);
+void event_handler(SDL_Event*, player_t*, enemies_t*);
 
 void player_move(player_t*, SDL_Scancode);
 
-void player_attack(player_t*);
+void player_attack(player_t*, enemies_t*);
 
-void game_loop(player_t*);
+void att_enemy_at(enemies_t*, int, int, int);
 
-void render_loop(player_t*, SDL_Texture*);
+void kill_enemy(enemies_t*, int);
+
+void game_loop(player_t*, enemies_t*);
+
+void render_loop(player_t*, enemies_t*, SDL_Texture*);
 
 char* generate_lvl();
 
@@ -111,15 +127,31 @@ int main(int argc, char* args[]) {
 		sdlerr_handler();
 
 
-	player_t player = {1, 1};
+	player_t player = {1, 1, DIR_DOWN, 30};
 
+	enemies_t enemies;
+	enemies.e = calloc(40, sizeof(enemy_t));
+	enemies.count = 10;
+
+	srandom(time(NULL));
+	for (int32_t i = 0; i < enemies.count; ++i) {
+		uint32_t x = 0, y = 0;
+		while (level0[y * LVL_W + x] == '#') {
+			x = random() % LVL_W;
+			y = random() % LVL_H;
+			printt(x, y);
+		}
+		enemies.e[i].x = x;
+		enemies.e[i].y = y;
+		enemies.e[i].hp = 100;
+	}
 
 	while (running) {
 
 		SDL_RenderClear(renderer);
 
-		render_loop(&player, tex);
-		game_loop(&player);
+		render_loop(&player, &enemies, tex);
+		game_loop(&player, &enemies);
 
 
 		SDL_RenderPresent(renderer);
@@ -149,7 +181,7 @@ void quit() {
 	running = 0;
 }
 
-void event_handler(SDL_Event* ev, player_t* player) {
+void event_handler(SDL_Event* ev, player_t* player, enemies_t* enemies) {
 	switch (ev->type) {
 		case SDL_QUIT:
 			quit();
@@ -171,6 +203,10 @@ void event_handler(SDL_Event* ev, player_t* player) {
 					free(level0);
 					level0 = generate_lvl();
 					break;
+				case SDL_SCANCODE_SPACE:
+					player_attack(player, enemies);
+					break;
+
 			}
 			break;
 	}
@@ -213,15 +249,15 @@ void player_move(player_t* player, SDL_Scancode code) {
 
 }
 
-void game_loop(player_t* player) {
+void game_loop(player_t* player, enemies_t* enemies) {
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {
-		event_handler(&event, player);
+		event_handler(&event, player, enemies);
 	}
 
 }
 
-void render_loop(player_t* player, SDL_Texture* tex) {
+void render_loop(player_t* player, enemies_t* enemies, SDL_Texture* tex) {
 	int xoff = (int) (player->x / SCR_W) * SCR_W;
 	int yoff = (int) (player->y / SCR_H) * SCR_H;
 	// printt(player.x, player.y);
@@ -261,6 +297,14 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 				query_sprite(SPR_PLAYER, &src);
 				SDL_SetTextureColorMod(tex, 255, 255, 255);
 				SDL_RenderCopy(renderer, tex, &src, &dest);
+			}
+
+			for (uint32_t i = 0; i < enemies->count; ++i) {
+				if (enemies->e[i].x == x + xoff && enemies->e[i].y == y + yoff) {
+					query_sprite(SPR_ENEMY1, &src);
+					SDL_SetTextureColorMod(tex, light, light, light);
+					SDL_RenderCopy(renderer, tex, &src, &dest);
+				}
 			}
 		}
 	}
@@ -369,8 +413,54 @@ void carve_path(char* map, int mapw, int maph, int sx, int sy, int dx, int dy) {
 float dist_to(int sx, int sy, int dx, int dy) {
 	return sqrtf(powf(sx - dx, 2) + powf(sy - dy, 2));
 }
-//
-// void player_attack(player_t* player) {
-// 	switch ()
-// }
-//
+
+
+void player_attack(player_t* player, enemies_t* enemies) {
+	switch (player->last_move) {
+		case DIR_UP:
+			att_enemy_at(enemies, player->x, player->y - 1, player->dmg);
+			break;
+		case DIR_RIGHT:
+			att_enemy_at(enemies, player->x + 1, player->y, player->dmg);
+			break;
+		case DIR_DOWN:
+			att_enemy_at(enemies, player->x, player->y + 1, player->dmg);
+			break;
+		case DIR_LEFT:
+			att_enemy_at(enemies, player->x - 1, player->y, player->dmg);
+			break;
+	}
+}
+
+void att_enemy_at(enemies_t* enemies, int x, int y, int dmg) {
+	printf("attacking enemy at ");
+	printt(x, y);
+	for (uint32_t i = 0; i < enemies->count; ++i) {
+		if (enemies->e[i].x == x && enemies->e[i].y == y) {
+			enemies->e[i].hp -= dmg;
+			printt(enemies->e[i].hp, dmg);
+			if (enemies->e[i].hp <= 0) {
+				kill_enemy(enemies, i);
+			}
+		}
+	}
+}
+
+void kill_enemy(enemies_t* enemies, int index) {
+	printf("killing enemy %d\n", index);
+	enemy_t* newe = calloc(enemies->count - 1, sizeof(enemy_t));
+	for (uint32_t i = 0; i < enemies->count; ++i) {
+		if (i != index) {
+			if (i > index) {
+				newe[i - 1] = enemies->e[i];
+			} else {
+				newe[i] = enemies->e[i];
+			}
+
+		}
+	}
+	enemies->count--;
+	free(enemies->e);
+	enemies->e = newe;
+}
+
