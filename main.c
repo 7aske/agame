@@ -31,9 +31,17 @@ for (int y = 0; y < LVL_H; ++y){\
 for (int x = 0; x < LVL_W; ++x) putc(lvl[y * LVL_W + x] == '#' ? (char)178 : ' ', stdout);\
 putc('\n', stdout);}\
 
+typedef enum {
+	DIR_UP = 0,
+	DIR_RIGHT = 1,
+	DIR_DOWN = 2,
+	DIR_LEFT = 3,
+} move_dir;
+
 typedef struct player {
 	uint32_t x;
 	uint32_t y;
+	move_dir last_move;
 } player_t;
 
 void sig_handler(int);
@@ -46,15 +54,19 @@ void event_handler(SDL_Event*, player_t*);
 
 void player_move(player_t*, SDL_Scancode);
 
+void player_attack(player_t*);
+
 void game_loop(player_t*);
 
-void render_loop(player_t*);
+void render_loop(player_t*, SDL_Texture*);
 
 char* generate_lvl();
 
 void carve_path(char*, int, int, int, int, int, int);
 
 void generate_rooms(char*, int, int);
+
+float dist_to(int sx, int sy, int dx, int dy);
 
 char* level0 = NULL;
 
@@ -106,42 +118,9 @@ int main(int argc, char* args[]) {
 
 		SDL_RenderClear(renderer);
 
-		render_loop(&player);
+		render_loop(&player, tex);
 		game_loop(&player);
 
-
-		int xoff = (int) (player.x / SCR_W) * SCR_W;
-		int yoff = (int) (player.y / SCR_H) * SCR_H;
-		// printt(player.x, player.y);
-		// printt(xoff, yoff);
-		for (int y = 0; y < SCR_H; ++y) {
-			for (int x = 0; x < SCR_W; ++x) {
-				SDL_Rect dest;
-				SDL_Rect src;
-				dest.h = DSIZE;
-				dest.w = DSIZE;
-				dest.x = DSIZE * x;
-				dest.y = DSIZE * y;
-				switch (level0[((y + yoff) * LVL_W) + x + xoff]) {
-					case '#':
-						query_sprite(SPR_WALL, &src);
-						break;
-					case ' ':
-						query_sprite(SPR_FLOOR, &src);
-						break;
-					case 'B':
-						query_sprite(SPR_LFLOOR, &src);
-						break;
-
-				}
-				SDL_RenderCopy(renderer, tex, &src, &dest);
-
-				if (x + xoff == player.x && y + yoff == player.y) {
-					query_sprite(SPR_PLAYER, &src);
-					SDL_RenderCopy(renderer, tex, &src, &dest);
-				}
-			}
-		}
 
 		SDL_RenderPresent(renderer);
 		SDL_UpdateWindowSurface(window);
@@ -204,24 +183,28 @@ void player_move(player_t* player, SDL_Scancode code) {
 			if (level0[((player->y - 1) * LVL_W) + player->x] != '#') {
 				player->y -= 1;
 			}
+			player->last_move = DIR_UP;
 			break;
 		case SDL_SCANCODE_A:
 		case SDL_SCANCODE_LEFT:
 			if (level0[(player->y * LVL_W) + player->x - 1] != '#') {
 				player->x -= 1;
 			}
+			player->last_move = DIR_LEFT;
 			break;
 		case SDL_SCANCODE_S:
 		case SDL_SCANCODE_DOWN:
 			if (level0[((player->y + 1) * LVL_W) + player->x] != '#') {
 				player->y += 1;
 			}
+			player->last_move = DIR_DOWN;
 			break;
 		case SDL_SCANCODE_D:
 		case SDL_SCANCODE_RIGHT:
 			if (level0[(player->y * LVL_W) + player->x + 1] != '#') {
 				player->x += 1;
 			}
+			player->last_move = DIR_RIGHT;
 			break;
 		default:
 			break;
@@ -238,8 +221,49 @@ void game_loop(player_t* player) {
 
 }
 
-void render_loop(player_t* player) {
+void render_loop(player_t* player, SDL_Texture* tex) {
+	int xoff = (int) (player->x / SCR_W) * SCR_W;
+	int yoff = (int) (player->y / SCR_H) * SCR_H;
+	// printt(player.x, player.y);
+	// printt(xoff, yoff);
+	for (int y = 0; y < SCR_H; ++y) {
+		for (int x = 0; x < SCR_W; ++x) {
+			SDL_Rect dest;
+			SDL_Rect src;
+			dest.h = DSIZE;
+			dest.w = DSIZE;
+			dest.x = DSIZE * x;
+			dest.y = DSIZE * y;
+			switch (level0[((y + yoff) * LVL_W) + x + xoff]) {
+				case '#':
+					query_sprite(SPR_WALL, &src);
+					break;
+				case ' ':
+					query_sprite(SPR_FLOOR, &src);
+					break;
+				case 'B':
+					query_sprite(SPR_LFLOOR, &src);
+					break;
 
+			}
+
+			// calculate lighting depending on distance to the player (only light source)
+			float dist = dist_to(player->x, player->y, x + xoff, y + yoff);
+			float light_amp = 3;
+			float light = 255.0f / (dist / light_amp);
+			light = light > 255 ? 255 : light;
+
+			SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
+
+			SDL_RenderCopy(renderer, tex, &src, &dest);
+
+			if (x + xoff == player->x && y + yoff == player->y) {
+				query_sprite(SPR_PLAYER, &src);
+				SDL_SetTextureColorMod(tex, 255, 255, 255);
+				SDL_RenderCopy(renderer, tex, &src, &dest);
+			}
+		}
+	}
 }
 
 
@@ -338,8 +362,15 @@ void carve_path(char* map, int mapw, int maph, int sx, int sy, int dx, int dy) {
 		} else if (cy > dy) {
 			cy--;
 		}
-
 		map[cy * mapw + cx] = ' ';
 	}
 }
 
+float dist_to(int sx, int sy, int dx, int dy) {
+	return sqrtf(powf(sx - dx, 2) + powf(sy - dy, 2));
+}
+//
+// void player_attack(player_t* player) {
+// 	switch ()
+// }
+//
