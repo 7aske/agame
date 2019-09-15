@@ -69,6 +69,8 @@ void player_move(player_t*, SDL_Scancode);
 
 void player_attack(player_t*, enemies_t*);
 
+void generate_enemies(enemies_t*, int);
+
 void att_enemy_at(enemies_t*, int, int, int);
 
 void kill_enemy(enemies_t*, int);
@@ -92,6 +94,7 @@ char* level0 = NULL;
 unsigned char cur_lvl = 0;
 
 volatile __sig_atomic_t running = 1;
+volatile __sig_atomic_t l_sw = 1;
 
 //The window we'll be rendering to
 SDL_Window* window = NULL;
@@ -100,7 +103,6 @@ uint32_t render_flags = SDL_RENDERER_ACCELERATED;
 TTF_Font* font;
 
 int main(int argc, char* args[]) {
-	level0 = generate_lvl();
 
 	signal(SIGINT, sig_handler);
 
@@ -135,23 +137,13 @@ int main(int argc, char* args[]) {
 	if (!font)
 		fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
 
+	level0 = generate_lvl();
 	player_t player = {1, 1, DIR_DOWN, 30};
 
 	enemies_t enemies;
-	enemies.e = calloc(40, sizeof(enemy_t));
-	enemies.count = 10;
-
-	srandom(time(NULL));
-	for (int32_t i = 0; i < enemies.count; ++i) {
-		uint32_t x = 0, y = 0;
-		while (level0[y * LVL_W + x] == '#') {
-			x = random() % LVL_W;
-			y = random() % LVL_H;
-		}
-		enemies.e[i].x = x;
-		enemies.e[i].y = y;
-		enemies.e[i].hp = 100;
-	}
+	enemies.e = NULL;
+	enemies.count = 0;
+	generate_enemies(&enemies, 10);
 
 	// setup code
 
@@ -164,8 +156,8 @@ int main(int argc, char* args[]) {
 
 		SDL_RenderClear(renderer);
 
-		render_loop(&player, &enemies, tex);
 		game_loop(&player, &enemies);
+		render_loop(&player, &enemies, tex);
 
 		deltaclock = SDL_GetTicks() - startclock;
 		startclock = SDL_GetTicks();
@@ -217,17 +209,25 @@ void event_handler(SDL_Event* ev, player_t* player, enemies_t* enemies) {
 				case SDL_SCANCODE_DOWN:
 				case SDL_SCANCODE_D:
 				case SDL_SCANCODE_RIGHT:
-					// printf("%d\n", ev->key.keysym.scancode);
 					player_move(player, ev->key.keysym.scancode);
 					break;
 				case SDL_SCANCODE_R:
 					free(level0);
 					level0 = generate_lvl();
+					generate_enemies(enemies, 10);
+					long x = 0, y = 0;
+					while (level0[y * LVL_W + x] == '#') {
+						x = random() % LVL_W;
+						y = random() % LVL_H;
+					}
+					player->x = x;
+					player->y = y;
 					break;
 				case SDL_SCANCODE_SPACE:
 					player_attack(player, enemies);
 					break;
-
+				case SDL_SCANCODE_L:
+					l_sw = !l_sw;
 			}
 			break;
 	}
@@ -281,8 +281,6 @@ void game_loop(player_t* player, enemies_t* enemies) {
 void render_loop(player_t* player, enemies_t* enemies, SDL_Texture* tex) {
 	int xoff = (int) (player->x / SCR_W) * SCR_W;
 	int yoff = (int) (player->y / SCR_H) * SCR_H;
-	// printt(player.x, player.y);
-	// printt(xoff, yoff);
 	for (int y = 0; y < SCR_H; ++y) {
 		for (int x = 0; x < SCR_W; ++x) {
 			SDL_Rect dest;
@@ -303,12 +301,16 @@ void render_loop(player_t* player, enemies_t* enemies, SDL_Texture* tex) {
 					break;
 
 			}
-
-			// calculate lighting depending on distance to the player (only light source)
-			float dist = dist_to(player->x, player->y, x + xoff, y + yoff);
-			float light_amp = 3;
-			float light = 255.0f / (dist / light_amp);
-			light = light > 255 ? 255 : light;
+			float light = 255;
+			if (l_sw) {
+				float a = 1 - (10 - (random() % 25)) / 100.0f;
+				// printf("%f\n", a);
+				// calculate lighting depending on distance to the player (only light source)
+				float dist = dist_to(player->x, player->y, x + xoff, y + yoff);
+				float light_amp = 3;
+				light = 255.0f / (dist / light_amp) * a;
+				light = light > 255 ? 255 : light;
+			}
 
 			SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
 
@@ -500,5 +502,25 @@ void print_fps(int const* fps) {
 	message_rect.h = 32;
 
 	SDL_RenderCopy(renderer, message, NULL, &message_rect);
+}
+
+void generate_enemies(enemies_t* enemies, int count) {
+	if (enemies->e != NULL) {
+		free(enemies->e);
+	}
+	enemies->e = calloc(40, sizeof(enemy_t));
+	enemies->count = count;
+
+	srandom(time(NULL));
+	for (int32_t i = 0; i < enemies->count; ++i) {
+		uint32_t x = 0, y = 0;
+		while (level0[y * LVL_W + x] == '#') {
+			x = random() % LVL_W;
+			y = random() % LVL_H;
+		}
+		enemies->e[i].x = x;
+		enemies->e[i].y = y;
+		enemies->e[i].hp = 100;
+	}
 }
 
