@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <signal.h>
@@ -84,6 +85,8 @@ void generate_rooms(char*, int, int);
 
 float dist_to(int sx, int sy, int dx, int dy);
 
+void print_fps(int const*);
+
 char* level0 = NULL;
 
 unsigned char cur_lvl = 0;
@@ -93,8 +96,8 @@ volatile __sig_atomic_t running = 1;
 //The window we'll be rendering to
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
-uint32_t render_flags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC;
-
+uint32_t render_flags = SDL_RENDERER_ACCELERATED;
+TTF_Font* font;
 
 int main(int argc, char* args[]) {
 	level0 = generate_lvl();
@@ -108,6 +111,7 @@ int main(int argc, char* args[]) {
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 		sdlerr_handler();
 
+	TTF_Init();
 	//Create window
 	window = SDL_CreateWindow("A Game", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH,
 							  HEIGHT, SDL_WINDOW_SHOWN);
@@ -126,6 +130,10 @@ int main(int argc, char* args[]) {
 	if (!tex)
 		sdlerr_handler();
 
+	font = TTF_OpenFont("/usr/share/fonts/TTF/DejaVuSans.ttf", 24);
+
+	if (!font)
+		fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
 
 	player_t player = {1, 1, DIR_DOWN, 30};
 
@@ -139,12 +147,18 @@ int main(int argc, char* args[]) {
 		while (level0[y * LVL_W + x] == '#') {
 			x = random() % LVL_W;
 			y = random() % LVL_H;
-			printt(x, y);
 		}
 		enemies.e[i].x = x;
 		enemies.e[i].y = y;
 		enemies.e[i].hp = 100;
 	}
+
+	// setup code
+
+	Uint32 startclock = 0;
+	Uint32 deltaclock = 0;
+	Uint32 currentFPS = 0;
+	startclock = SDL_GetTicks();
 
 	while (running) {
 
@@ -153,13 +167,20 @@ int main(int argc, char* args[]) {
 		render_loop(&player, &enemies, tex);
 		game_loop(&player, &enemies);
 
+		deltaclock = SDL_GetTicks() - startclock;
+		startclock = SDL_GetTicks();
+
+		if (deltaclock != 0) {
+			currentFPS = 1000 / deltaclock;
+			print_fps((int const*) &currentFPS);
+		}
 
 		SDL_RenderPresent(renderer);
 		SDL_UpdateWindowSurface(window);
 
 		SDL_Delay(1000 / 60);
 	}
-
+	TTF_Quit();
 	return 0;
 }
 
@@ -462,5 +483,22 @@ void kill_enemy(enemies_t* enemies, int index) {
 	enemies->count--;
 	free(enemies->e);
 	enemies->e = newe;
+}
+
+void print_fps(int const* fps) {
+
+	char buf[32];
+	snprintf(buf, 32, "fps %d", *fps);
+	SDL_Color white = {255, 255, 255};
+
+	SDL_Surface* surfaceMessage = TTF_RenderText_Solid(font, buf, white);
+	SDL_Texture* message = SDL_CreateTextureFromSurface(renderer, surfaceMessage);
+	SDL_Rect message_rect;
+	message_rect.x = 16;
+	message_rect.y = HEIGHT - 32;
+	message_rect.w = 150;
+	message_rect.h = 32;
+
+	SDL_RenderCopy(renderer, message, NULL, &message_rect);
 }
 
