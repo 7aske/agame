@@ -349,7 +349,8 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 						SDL_RenderCopy(renderer, tex, &src, &dest);
 						query_sprite(SPR_OOZEF, &src);
 						dest.y += BSIZE;
-						if (level[((y + yoff) * LVL_W) + x + xoff] == B_WALL) {
+						if (level[((y + yoff) * LVL_W) + x + xoff] == B_FLOOR &&
+							level[((y + yoff) * LVL_W) + x + xoff] == B_WALL) {
 							SDL_RenderCopy(renderer, tex, &src, &dest);
 							query_sprite(SPR_TWALL, &src);
 						}
