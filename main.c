@@ -1,3 +1,5 @@
+#define SDL_MAIN_HANDLED 1
+
 #include <stdio.h>
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL.h>
@@ -92,8 +94,8 @@ char* solution = NULL;
 int exit_x = -1;
 int exit_y = -1;
 
-volatile __sig_atomic_t running = 1;
-volatile __sig_atomic_t l_sw = 1;
+volatile int running = 1;
+volatile int l_sw = 1;
 
 //The window we'll be rendering to
 SDL_Window* window = NULL;
@@ -101,7 +103,7 @@ SDL_Renderer* renderer = NULL;
 uint32_t render_flags = SDL_RENDERER_ACCELERATED;
 TTF_Font* font;
 
-int main(int argc, char* args[]) {
+int main(int argc, char** argv) {
 
 	signal(SIGINT, sig_handler);
 
@@ -285,7 +287,7 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 			dest.y = BSIZE * y;
 
 			light_amp = 3;
-			a = 1 - (10 - (random() % 25)) / 100.0f;
+			a = 1 - (10 - (rand() % 25)) / 100.0f;
 			dist = dist_to(player->x, player->y, x + xoff, y + yoff);
 			if (bresenham(player->x, player->y, x + xoff, y + yoff, level)) {
 				// calculate lighting depending on distance to the player (only light source)
@@ -393,7 +395,7 @@ void carve_maze(char* maze, int width, int height, int x, int y) {
 	int dx, dy;
 	int dir, count;
 
-	dir = random() % 4;
+	dir = rand() % 4;
 	count = 0;
 	while (count < 4) {
 		dx = 0;
@@ -424,7 +426,7 @@ void carve_maze(char* maze, int width, int height, int x, int y) {
 			maze[y2 * width + x2] = B_FLOOR;
 			x = x2;
 			y = y2;
-			dir = random() % 4;
+			dir = rand() % 4;
 			count = 0;
 		} else {
 			dir = (dir + 1) % 4;
@@ -441,7 +443,7 @@ char* generate_level() {
 	memset(lvl, B_WALL, LVL_H * LVL_W);
 	for (y = 1; y < LVL_H; y += 2) {
 		for (x = 1; x < LVL_W; x += 2) {
-			srandom(time(NULL));
+			srand(time(NULL));
 			carve_maze(lvl, LVL_W, LVL_H, x, y);
 		}
 	}
@@ -588,7 +590,7 @@ void restart_level(player_t* player) {
 	level = generate_level();
 	free(doodads);
 	doodads = generate_doodads();
-	while (level[(player->y = random() % LVL_H) * LVL_W + (player->x = random() % LVL_W)] == B_WALL);
+	while (level[(player->y = rand() % LVL_H) * LVL_W + (player->x = rand() % LVL_W)] == B_WALL);
 }
 
 void overlay_solution(char* maze, char const* sol) {
@@ -613,26 +615,26 @@ char* generate_doodads() {
 	#define SKULL_COUNT 10
 	#define PIPE_COUNT 30
 
-	srandom(time(NULL));
+	srand(time(NULL));
 	for (i = 0; i < BRICK_COUNT; ++i) {
-		while (level[(dy = random() % LVL_H) * LVL_W + (dx = random() % LVL_W)] != B_WALL);
+		while (level[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_WALL);
 		dd[dy * LVL_W + dx] = D_BRICK;
 	}
 	for (i = 0; i < GRATE_COUNT; ++i) {
-		while (level[(dy = random() % LVL_H) * LVL_W + (dx = random() % LVL_W)] != B_WALL);
+		while (level[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_WALL);
 		dd[dy * LVL_W + dx] = D_GRATE;
 	}
 	for (i = 0; i < OOZE_COUNT; ++i) {
-		while (level[(dy = random() % LVL_H) * LVL_W + (dx = random() % LVL_W)] != B_FLOOR);
+		while (level[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_FLOOR);
 		dd[dy * LVL_W + dx] = D_OOZE;
 	}
 	for (i = 0; i < SKULL_COUNT; ++i) {
-		while (level[(dy = random() % LVL_H) * LVL_W + (dx = random() % LVL_W)] != B_FLOOR);
+		while (level[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_FLOOR);
 		dd[dy * LVL_W + dx] = D_SKULL;
 	}
 	for (i = 0; i < PIPE_COUNT; ++i) {
-		while (level[(dy = random() % LVL_H) * LVL_W + (dx = random() % LVL_W)] != B_WALL);
-		dd[dy * LVL_W + dx] = random() % 2 ? D_PIPE1 : D_PIPE2;
+		while (level[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_WALL);
+		dd[dy * LVL_W + dx] = rand() % 2 ? D_PIPE1 : D_PIPE2;
 	}
 	return dd;
 }
