@@ -42,8 +42,6 @@ typedef enum {
 typedef struct player {
 	int32_t x;
 	int32_t y;
-	move_dir last_move;
-	uint32_t dmg;
 } player_t;
 
 void sig_handler(int);
@@ -62,19 +60,19 @@ void render_loop(player_t*, SDL_Texture*);
 
 char* generate_lvl();
 
-void carve_path(char*, int, int, int, int, int, int);
+void restart_lvl(player_t*);
 
-void generate_rooms(char*, int, int);
-
-float dist_to(int sx, int sy, int dx, int dy);
+float dist_to(int, int, int, int);
 
 void print_fps(int const*);
 
-void carve_maze(char* maze, int width, int height, int x, int y);
+void carve_maze(char*, int, int, int, int);
 
-char* level0 = NULL;
+int bresenham(int, int, int, int, char*);
 
-unsigned char cur_lvl = 0;
+char* level = NULL;
+int exit_x = -1;
+int exit_y = -1;
 
 volatile __sig_atomic_t running = 1;
 volatile __sig_atomic_t l_sw = 1;
@@ -120,7 +118,7 @@ int main(int argc, char* args[]) {
 	if (!font)
 		fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
 
-	level0 = generate_lvl();
+	level = generate_lvl();
 	player_t player = {1, 1, DIR_DOWN, 30};
 
 	// generate_enemies(&enemies, 10);
@@ -137,7 +135,7 @@ int main(int argc, char* args[]) {
 		SDL_RenderClear(renderer);
 
 		game_loop(&player);
-		render_loop(&player,  tex);
+		render_loop(&player, tex);
 
 		deltaclock = SDL_GetTicks() - startclock;
 		startclock = SDL_GetTicks();
@@ -192,15 +190,7 @@ void event_handler(SDL_Event* ev, player_t* player) {
 					player_move(player, ev->key.keysym.scancode);
 					break;
 				case SDL_SCANCODE_R:
-					free(level0);
-					level0 = generate_lvl();
-					long x = 0, y = 0;
-					while (level0[y * LVL_W + x] == '#') {
-						x = random() % LVL_W;
-						y = random() % LVL_H;
-					}
-					player->x = x;
-					player->y = y;
+					restart_lvl(player);
 					break;
 				case SDL_SCANCODE_L:
 					l_sw = !l_sw;
@@ -217,31 +207,27 @@ void player_move(player_t* player, SDL_Scancode code) {
 	switch (code) {
 		case SDL_SCANCODE_W:
 		case SDL_SCANCODE_UP:
-			if (level0[((player->y - 1) * LVL_W) + player->x] != '#') {
+			if (level[((player->y - 1) * LVL_W) + player->x] != '#') {
 				player->y -= 1;
 			}
-			player->last_move = DIR_UP;
 			break;
 		case SDL_SCANCODE_A:
 		case SDL_SCANCODE_LEFT:
-			if (level0[(player->y * LVL_W) + player->x - 1] != '#') {
+			if (level[(player->y * LVL_W) + player->x - 1] != '#') {
 				player->x -= 1;
 			}
-			player->last_move = DIR_LEFT;
 			break;
 		case SDL_SCANCODE_S:
 		case SDL_SCANCODE_DOWN:
-			if (level0[((player->y + 1) * LVL_W) + player->x] != '#') {
+			if (level[((player->y + 1) * LVL_W) + player->x] != '#') {
 				player->y += 1;
 			}
-			player->last_move = DIR_DOWN;
 			break;
 		case SDL_SCANCODE_D:
 		case SDL_SCANCODE_RIGHT:
-			if (level0[(player->y * LVL_W) + player->x + 1] != '#') {
+			if (level[(player->y * LVL_W) + player->x + 1] != '#') {
 				player->x += 1;
 			}
-			player->last_move = DIR_RIGHT;
 			break;
 		default:
 			break;
@@ -261,15 +247,15 @@ void game_loop(player_t* player) {
 void render_loop(player_t* player, SDL_Texture* tex) {
 	int xoff = (int) (player->x / SCR_W) * SCR_W;
 	int yoff = (int) (player->y / SCR_H) * SCR_H;
+	SDL_Rect dest;
+	SDL_Rect src;
 	for (int y = 0; y < SCR_H; ++y) {
 		for (int x = 0; x < SCR_W; ++x) {
-			SDL_Rect dest;
-			SDL_Rect src;
 			dest.h = DSIZE;
 			dest.w = DSIZE;
 			dest.x = DSIZE * x;
 			dest.y = DSIZE * y;
-			switch (level0[((y + yoff) * LVL_W) + x + xoff]) {
+			switch (level[((y + yoff) * LVL_W) + x + xoff]) {
 				case '#':
 					query_sprite(SPR_WALL, &src);
 					break;
@@ -281,22 +267,29 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 					break;
 
 			}
-			float light = 255;
-			if (l_sw) {
-				float a = 1 - (10 - (random() % 25)) / 100.0f;
-				// printf("%f\n", a);
+			float light;
+			float a = 1 - (10 - (random() % 25)) / 100.0f;
+			float dist = dist_to(player->x, player->y, x + xoff, y + yoff);
+			if (bresenham(player->x, player->y, x + xoff, y + yoff, level)) {
+				// if (l_sw) {
 				// calculate lighting depending on distance to the player (only light source)
-				float dist = dist_to(player->x, player->y, x + xoff, y + yoff);
-				float light_amp = 3;
+				float light_amp = 2;
 				light = 255.0f / (dist / light_amp) * a;
 				light = light > 255 ? 255 : light;
+			} else {
+				light = 127.0f / dist * a;
+				light = light > 127 ? 127 : light;
+				// light = 0;
+			};
+
+			if (!l_sw) {
+				light = 255;
 			}
+
 
 			SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
 
 			SDL_RenderCopy(renderer, tex, &src, &dest);
-
-			SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
 
 			if (x + xoff == player->x && y + yoff == player->y) {
 				query_sprite(SPR_PLAYER, &src);
@@ -314,7 +307,7 @@ void carve_maze(char* maze, int width, int height, int x, int y) {
 	int dx, dy;
 	int dir, count;
 
-	dir = rand() % 4;
+	dir = random() % 4;
 	count = 0;
 	while (count < 4) {
 		dx = 0;
@@ -337,13 +330,15 @@ void carve_maze(char* maze, int width, int height, int x, int y) {
 		y1 = y + dy;
 		x2 = x1 + dx;
 		y2 = y1 + dy;
-		if (x2 > 0 && x2 < width && y2 > 0 && y2 < height
-			&& maze[y1 * width + x1] == 35 && maze[y2 * width + x2] == 35) {
+		if (x2 > 0 && x2 < width &&
+			y2 > 0 && y2 < height &&
+			maze[y1 * width + x1] == 35 &&
+			maze[y2 * width + x2] == 35) {
 			maze[y1 * width + x1] = 32;
 			maze[y2 * width + x2] = 32;
 			x = x2;
 			y = y2;
-			dir = rand() % 4;
+			dir = random() % 4;
 			count = 0;
 		} else {
 			dir = (dir + 1) % 4;
@@ -360,113 +355,24 @@ char* generate_lvl() {
 	int x, y;
 	char* lvl = (char*) malloc(lvlh * lvlw);
 	memset(lvl, 35, lvlh * lvlw);
-	// for (int y = 0; y < lvlh; ++y) {
-	// 	for (int x = 0; x < lvlw; ++x) {
-	// 		if (x == 0 || y == 0 || x == lvlw - 1 || y == lvlh - 1) {
-	// 			lvl[y * lvlw + x] = 35;
-	// 		}
-	// 	}
-	// }
-	// generate_rooms(lvl, lvlw, lvlh);
 	for (y = 1; y < lvlh; y += 2) {
 		for (x = 1; x < lvlw; x += 2) {
+			srandom(time(NULL));
 			carve_maze(lvl, lvlw, lvlh, x, y);
 		}
 	}
 
 	/* Set up the entry and exit. */
 	lvl[0 * lvlw + 1] = 0;
-	lvl[(lvlh - 1) * lvlw + (lvlw - 2)] = 0;
+	exit_x = (lvlw - 2);
+	exit_y = (lvlh - 1);
+	lvl[exit_y * lvlw + exit_x] = 0;
 	return lvl;
-}
-
-void generate_rooms(char* lvl, int lvlw, int lvlh) {
-	srandom(time(NULL));
-	int rmax = 6;
-	int rmin = 3;
-
-	int num_rooms = 10;
-
-	for (int y = 1; y < rmin; ++y) {
-		for (int x = 1; x < rmin; ++x) {
-			lvl[y * lvlw + x] = 32;
-		}
-	}
-
-	int roots[WRLD_H][WRLD_W][num_rooms][2];
-
-	for (int row = 0; row < WRLD_H; ++row) {
-		for (int col = 0; col < WRLD_W; ++col) {
-			for (int i = 0; i < num_rooms; ++i) {
-				int rx = (int) random() % (SCR_W - rmax - 1) + 1 + SCR_W * col;
-				int ry = (int) random() % (SCR_H - rmax - 1) + 1 + SCR_H * row;
-				int rw = (int) (random() % (rmax - rmin)) + rmin;
-				int rh = (int) (random() % (rmax - rmin)) + rmin;
-				roots[row][col][i][0] = rx;
-				roots[row][col][i][1] = ry;
-				for (int y = ry; y < ry + rh; ++y) {
-					for (int x = rx; x < rx + rw; ++x) {
-						lvl[y * lvlw + x] = 32;
-					}
-				}
-			}
-			if (col == 0 && row == 0) {
-				carve_path(lvl, lvlw, lvlh, rmin - 1, rmin - 1, roots[row][col][0][0], roots[row][col][0][1]);
-			}
-		}
-	}
-
-	for (int row = 0; row < WRLD_H; ++row) {
-		for (int col = 0; col < WRLD_W; ++col) {
-			// carve paths between neighbouring rooms
-			for (int j = 0; j < num_rooms - 1; ++j) {
-				carve_path(lvl, lvlw, lvlh, roots[row][col][j][0], roots[row][col][j][1], roots[row][col][j + 1][0],
-						   roots[row][col][j + 1][1]);
-			}
-
-			// carve paths between neighbouring sections
-			if (row > 0) {
-				carve_path(lvl, lvlw, lvlh,
-						   roots[row - 1][col][num_rooms - 1][0],
-						   roots[row - 1][col][num_rooms - 1][1],
-						   roots[row][col][0][0],
-						   roots[row][col][0][1]);
-			}
-			if (col > 0) {
-				carve_path(lvl, lvlw, lvlh,
-						   roots[row][col - 1][num_rooms - 1][0],
-						   roots[row][col - 1][num_rooms - 1][1],
-						   roots[row][col][0][0],
-						   roots[row][col][0][1]);
-			}
-
-		}
-	}
-
-	printlvl(lvl)
-}
-
-void carve_path(char* map, int mapw, int maph, int sx, int sy, int dx, int dy) {
-	int cx = sx, cy = sy;
-
-	while (cx != dx || cy != dy) {
-		if (cx < dx) {
-			cx++;
-		} else if (cx > dx) {
-			cx--;
-		} else if (cy < dy) {
-			cy++;
-		} else if (cy > dy) {
-			cy--;
-		}
-		map[cy * mapw + cx] = ' ';
-	}
 }
 
 float dist_to(int sx, int sy, int dx, int dy) {
 	return sqrtf(powf(sx - dx, 2) + powf(sy - dy, 2));
 }
-
 
 
 void print_fps(int const* fps) {
@@ -484,4 +390,37 @@ void print_fps(int const* fps) {
 	message_rect.h = 32;
 
 	SDL_RenderCopy(renderer, message, NULL, &message_rect);
+}
+
+int bresenham(int x0, int y0, int x1, int y1, char* lvl) {
+	int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+	int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+	int err = dx + dy, e2; /* error value e_xy */
+
+	for (;;) {
+		if (x0 == x1 && y0 == y1) break;
+		e2 = 2 * err;
+		if (e2 >= dy) {
+			err += dy;
+			x0 += sx;
+		}
+		if (e2 <= dx) {
+			err += dx;
+			y0 += sy;
+		}
+		if (x0 == x1 && y0 == y1) return 1;
+		if (lvl[y0 * LVL_W + x0] == 35) return 0;
+	}
+}
+
+void restart_lvl(player_t* player) {
+	free(level);
+	level = generate_lvl();
+	long x = 0, y = 0;
+	while (level[y * LVL_W + x] == '#') {
+		x = random() % LVL_W;
+		y = random() % LVL_H;
+	}
+	player->x = x;
+	player->y = y;
 }
