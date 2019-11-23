@@ -15,13 +15,15 @@
 
 #include "macro_definitions.h"
 
+static char* solution = NULL;
+
 static int is_safe(char const* maze, int x, int y);
 
 static int _solve(char* maze, int x, int y, char* sol, int exit_x, int exit_y);
 
-extern void solve(char* maze, char** solution, int exit_x, int exit_y);
+extern void solve(char* maze, int exit_x, int exit_y);
 
-extern void overlay_solution(char* maze, char const* sol);
+extern void overlay_solution(char* maze, int exit_x, int exit_y);
 
 extern void carve_maze(char* maze, int width, int height, int x, int y);
 

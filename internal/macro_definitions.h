@@ -32,4 +32,5 @@
 #define D_GRATE 5
 #define D_BRICK 6
 
+
 #endif //AGAME_MACRO_DEFINITIONS_H

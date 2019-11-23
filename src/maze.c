@@ -47,28 +47,32 @@ int _solve(char* maze, int x, int y, char* sol, int exit_x, int exit_y) {
 	return 0;
 }
 
-void solve(char* maze, char** solution, int exit_x, int exit_y) {
+void solve(char* maze, int exit_x, int exit_y) {
 	assert(maze != NULL);
-	assert(solution != NULL);
-	if (*solution != NULL)
-		free(*solution);
-	*solution = malloc(LVL_W * LVL_H);
-	memcpy(*solution, maze, LVL_W * LVL_H);
-	_solve(maze, 1, 1, *solution, exit_x, exit_y);
+	assert(exit_x > 0);
+	assert(exit_y > 0);
+
+	if (solution != NULL)
+		free(solution);
+	solution = malloc(LVL_W * LVL_H);
+	memcpy(solution, maze, LVL_W * LVL_H);
+	_solve(maze, 1, 1, solution, exit_x, exit_y);
 }
 
-void overlay_solution(char* maze, char const* sol) {
-	if (maze != NULL && sol != NULL) {
-		for (int y = 0; y < LVL_H; ++y) {
-			for (int x = 0; x < LVL_W; ++x) {
-				if (sol[y * LVL_W + x] == SOL_PATH) {
-					maze[y * LVL_W + x] = maze[y * LVL_W + x] == SOL_PATH ? B_FLOOR : SOL_PATH;
-				}
+void overlay_solution(char* maze, int exit_x, int exit_y) {
+	assert(maze != NULL);
+	assert(exit_x > 0);
+	assert(exit_y > 0);
+
+	solve(maze, exit_x, exit_y);
+	for (int y = 0; y < LVL_H; ++y) {
+		for (int x = 0; x < LVL_W; ++x) {
+			if (solution[y * LVL_W + x] == SOL_PATH) {
+				maze[y * LVL_W + x] = maze[y * LVL_W + x] == SOL_PATH ? B_FLOOR : SOL_PATH;
 			}
 		}
 	}
 }
-
 
 void carve_maze(char* maze, int width, int height, int x, int y) {
 	int x1, y1;

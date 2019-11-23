@@ -8,6 +8,7 @@
 #include <assert.h>
 
 #include "macro_definitions.h"
+#include "draw_misc.h"
 
 #include "sprites.h"
 #include "maze.h"
@@ -23,9 +24,9 @@ typedef struct player {
 
 void sig_handler(int);
 
-void sdlerr_handler();
-
 void quit();
+
+void sdlerr_handler();
 
 void event_handler(SDL_Event*, player_t*);
 
@@ -37,25 +38,19 @@ void render_loop(player_t*, SDL_Texture*);
 
 void restart_level(player_t*);
 
-void draw_fps(int const*);
+static char* level = NULL;
+static char* doodads = NULL;
 
-void draw_help();
+static int exit_x = -1;
+static int exit_y = -1;
 
-char* level = NULL;
-char* doodads = NULL;
-char* solution = NULL;
-int exit_x = -1;
-int exit_y = -1;
+volatile static int running = 1;
+volatile static char l_sw = 0;
+volatile static char l_type[] = {1, 2, 3};
 
-volatile int running = 1;
-volatile char l_sw = 0;
-volatile char l_type[] = {1, 2, 3};
-
-//The window we'll be rendering to
-SDL_Window* window = NULL;
-SDL_Renderer* renderer = NULL;
-uint32_t render_flags = SDL_RENDERER_ACCELERATED;
-TTF_Font* font;
+static SDL_Window* window = NULL;
+static SDL_Renderer* renderer = NULL;
+static uint32_t render_flags = SDL_RENDERER_ACCELERATED;
 
 int main(int argc, char** argv) {
 	maze_test_macros();
@@ -63,7 +58,7 @@ int main(int argc, char** argv) {
 
 	//The surface contained by the window
 	SDL_Surface* surface = NULL;
-
+	TTF_Font* font;
 	//Initialize SDL
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 		sdlerr_handler();
@@ -80,25 +75,21 @@ int main(int argc, char** argv) {
 		sdlerr_handler();
 
 	renderer = SDL_CreateRenderer(window, -1, render_flags);
-
 	if (!renderer)
 		sdlerr_handler();
 
 	surface = IMG_Load("res/0x72_16x16DungeonTileset.v1.png");
-	SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surface);
+	SDL_Texture* tex __attribute__((cleanup(_sdldt))) = SDL_CreateTextureFromSurface(renderer, surface);
 	SDL_FreeSurface(surface);
-
 	if (!tex)
 		sdlerr_handler();
 
 	font = TTF_OpenFont("res/DejaVuSans-Bold.ttf", 24);
-
 	if (!font)
 		fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
 
 	level = generate_level(&exit_x, &exit_y);
 	doodads = generate_doodads(level);
-
 
 	player_t player = {1, 1};
 
@@ -107,6 +98,7 @@ int main(int argc, char** argv) {
 	Uint32 deltaclock = 0;
 	Uint32 currentFPS = 0;
 	startclock = SDL_GetTicks();
+	int target_fps = 60;
 
 	while (running) {
 		SDL_RenderClear(renderer);
@@ -119,18 +111,19 @@ int main(int argc, char** argv) {
 
 		if (deltaclock != 0) {
 			currentFPS = 1000 / deltaclock;
-			draw_fps((int const*) &currentFPS);
+			draw_fps(renderer, font, (int const*) &currentFPS);
 		}
-		draw_help();
+
+		draw_help(renderer, font);
+
 		SDL_RenderPresent(renderer);
 		SDL_UpdateWindowSurface(window);
-
-		SDL_Delay(1000 / 60);
+		SDL_Delay(1000 / target_fps);
 	}
-	SDL_DestroyTexture(tex);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	TTF_Quit();
+	SDL_Quit();
 	return 0;
 }
 
@@ -144,6 +137,7 @@ void sdlerr_handler() {
 	fprintf(stderr, "SDL_Error: %s\n", SDL_GetError());
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
+	TTF_Quit();
 	SDL_Quit();
 	exit(1);
 }
@@ -173,8 +167,7 @@ void event_handler(SDL_Event* ev, player_t* player) {
 					restart_level(player);
 					break;
 				case SDL_SCANCODE_O:
-					solve(level, &solution, exit_x, exit_y);
-					overlay_solution(level, solution);
+					overlay_solution(level, exit_x, exit_y);
 					break;
 				case SDL_SCANCODE_L:
 					l_sw = l_sw == sizeof(l_type) - 1 ? 0 : l_sw + 1;
@@ -232,6 +225,9 @@ void game_loop(player_t* player) {
 }
 
 void render_loop(player_t* player, SDL_Texture* tex) {
+	#undef lvlxy
+	#define lvlxy(ox, oy) level[((y + yoff + (oy)) * LVL_W) + (x + xoff + (ox))]
+
 	assert(doodads != NULL);
 	assert(level != NULL);
 	float light_amp, light, a, dist;
@@ -266,31 +262,30 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 			} else if (l_type[l_sw] == 3) {
 				light = 255;
 			}
-
 			SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
 
-			switch (level[((y + yoff) * LVL_W) + x + xoff]) {
+			switch (lvlxy(0, 0)) {
 				case B_WALL:
 					load_sprite(SPR_WALL, &src);
 					break;
 				case B_FLOOR:
-					if (level[((y + yoff - 1) * LVL_W) + x + xoff] == B_WALL) {
+					if (lvlxy(0, -1) == B_WALL) {
 						load_sprite(SPR_TFLOOR, &src);
 					} else {
 						load_sprite(SPR_FLOOR, &src);
 					}
-					if (level[((y + yoff + 1) * LVL_W) + x + xoff] == B_WALL) {
+					if (lvlxy(0, 1) == B_WALL) {
 						SDL_RenderCopy(renderer, tex, &src, &dest);
 						load_sprite(SPR_TWALL, &src);
 					}
 					break;
 				case SOL_PATH:
-					if (level[((y + yoff - 1) * LVL_W) + x + xoff] == B_WALL) {
+					if (lvlxy(0, -1) == B_WALL) {
 						load_sprite(SPR_TFLOOR, &src);
 					} else {
 						load_sprite(SPR_FLOOR, &src);
 					}
-					if (level[((y + yoff + 1) * LVL_W) + x + xoff] == B_WALL) {
+					if (lvlxy(0, 1) == B_WALL) {
 						SDL_RenderCopy(renderer, tex, &src, &dest);
 						load_sprite(SPR_TWALL, &src);
 					}
@@ -299,24 +294,34 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 					break;
 
 			}
-			switch (doodads[((y + yoff) * LVL_W) + x + xoff]) {
+			SDL_RenderCopy(renderer, tex, &src, &dest);
+
+			switch (doodads[((y + yoff) * LVL_W) + (x + xoff)]) {
 				case D_BRICK:
 					load_sprite(SPR_MBRICK, &src);
 					break;
 				case D_GRATE:
-					if (level[((y + yoff + 1) * LVL_W) + x + xoff] != B_WALL) {
+					if (lvlxy(0, 1) != B_WALL) {
+						dest.y += BSIZE;
+						load_sprite(SPR_OOZEF, &src);
+						SDL_RenderCopy(renderer, tex, &src, &dest);
+						dest.y -= BSIZE;
 						load_sprite(SPR_GRATE, &src);
 					}
 					break;
 				case D_OOZE:
-					if (level[((y + yoff - 1) * LVL_W) + x + xoff] == B_WALL) {
+					if (lvlxy(0, -1) == B_WALL) {
 						load_sprite(SPR_OOZE, &src);
 						dest.y -= BSIZE;
 						SDL_RenderCopy(renderer, tex, &src, &dest);
 						load_sprite(SPR_OOZEF, &src);
 						dest.y += BSIZE;
-						if (level[((y + yoff) * LVL_W) + x + xoff] == B_FLOOR &&
-							level[((y + yoff + 1) * LVL_W) + x + xoff] == B_WALL) {
+						if (lvlxy(0, 0) == SOL_PATH) {
+							SDL_RenderCopy(renderer, tex, &src, &dest);
+							load_sprite(SPR_COIN, &src);
+						}
+						if ((lvlxy(0, 0) == B_FLOOR || lvlxy(0, 0) == SOL_PATH) &&
+							lvlxy(0, 1) == B_WALL) {
 							SDL_RenderCopy(renderer, tex, &src, &dest);
 							load_sprite(SPR_TWALL, &src);
 						}
@@ -325,7 +330,7 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 				case D_SKULL:
 					SDL_RenderCopy(renderer, tex, &src, &dest);
 					load_sprite(SPR_SKULL, &src);
-					if (level[((y + yoff + 1) * LVL_W) + x + xoff] == B_WALL) {
+					if (lvlxy(0, 1) == B_WALL) {
 						SDL_RenderCopy(renderer, tex, &src, &dest);
 						load_sprite(SPR_TWALL, &src);
 					}
@@ -344,9 +349,9 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 				SDL_SetTextureColorMod(tex, 255, 255, 255);
 				SDL_RenderCopy(renderer, tex, &src, &dest);
 
-				if (level[((y + yoff + 1) * LVL_W) + x + xoff] == B_WALL &&
-					(level[((y + yoff) * LVL_W) + x + xoff] == B_FLOOR ||
-					 level[((y + yoff) * LVL_W) + x + xoff] == SOL_PATH)) {
+				if (lvlxy(0, 1) == B_WALL &&
+					(lvlxy(0, 0) == B_FLOOR ||
+					 lvlxy(0, 0) == SOL_PATH)) {
 					load_sprite(SPR_TWALL, &src);
 					SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
 					SDL_RenderCopy(renderer, tex, &src, &dest);
@@ -354,82 +359,7 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 			}
 		}
 	}
-}
-
-
-void draw_help() {
-	#define LINE_H 16
-	#define CHAR_W 8
-	char* line1 = "O - solve maze",
-			* line2 = "L - toggle light",
-			* line3 = "R - generate new maze",
-			* line4 = "Q - quit game";
-	SDL_Color white = {255, 255, 255};
-
-	SDL_Surface* surfaceMessage1 = TTF_RenderText_Solid(font, line1, white);
-	SDL_Surface* surfaceMessage2 = TTF_RenderText_Solid(font, line2, white);
-	SDL_Surface* surfaceMessage3 = TTF_RenderText_Solid(font, line3, white);
-	SDL_Surface* surfaceMessage4 = TTF_RenderText_Solid(font, line4, white);
-	SDL_Texture* message1 = SDL_CreateTextureFromSurface(renderer, surfaceMessage1);
-	SDL_Texture* message2 = SDL_CreateTextureFromSurface(renderer, surfaceMessage2);
-	SDL_Texture* message3 = SDL_CreateTextureFromSurface(renderer, surfaceMessage3);
-	SDL_Texture* message4 = SDL_CreateTextureFromSurface(renderer, surfaceMessage4);
-
-	SDL_Rect message_rect;
-
-	message_rect.x = 5;
-	message_rect.y = HEIGHT - 1 * LINE_H;
-	message_rect.w = strlen(line1) * CHAR_W;
-	message_rect.h = LINE_H;
-	SDL_RenderCopy(renderer, message1, NULL, &message_rect);
-
-	message_rect.x = 5;
-	message_rect.y = HEIGHT - 2 * LINE_H;
-	message_rect.w = strlen(line2) * CHAR_W;
-	message_rect.h = LINE_H;
-	SDL_RenderCopy(renderer, message2, NULL, &message_rect);
-
-	message_rect.x = 5;
-	message_rect.y = HEIGHT - 3 * LINE_H;
-	message_rect.w = strlen(line3) * CHAR_W;
-	message_rect.h = LINE_H;
-	SDL_RenderCopy(renderer, message3, NULL, &message_rect);
-
-	message_rect.x = 5;
-	message_rect.y = HEIGHT - 4 * LINE_H;
-	message_rect.w = strlen(line4) * CHAR_W;
-	message_rect.h = LINE_H;
-	SDL_RenderCopy(renderer, message4, NULL, &message_rect);
-
-	SDL_FreeSurface(surfaceMessage1);
-	SDL_FreeSurface(surfaceMessage2);
-	SDL_FreeSurface(surfaceMessage3);
-	SDL_FreeSurface(surfaceMessage4);
-
-	SDL_DestroyTexture(message1);
-	SDL_DestroyTexture(message2);
-	SDL_DestroyTexture(message3);
-	SDL_DestroyTexture(message4);
-}
-
-void draw_fps(int const* fps) {
-	#define LINE_H 16
-	#define CHAR_W 8
-	char buf[32];
-	snprintf(buf, 32, "fps %d", *fps);
-	SDL_Color white = {255, 255, 255};
-
-	SDL_Surface* surfaceMessage = TTF_RenderText_Solid(font, buf, white);
-	SDL_Texture* message = SDL_CreateTextureFromSurface(renderer, surfaceMessage);
-	SDL_Rect message_rect;
-	message_rect.x = 5;
-	message_rect.y = 5;
-	message_rect.w = strlen(buf) * CHAR_W;
-	message_rect.h = LINE_H;
-
-	SDL_RenderCopy(renderer, message, NULL, &message_rect);
-	SDL_FreeSurface(surfaceMessage);
-	SDL_DestroyTexture(message);
+	#undef lvlxy
 }
 
 void restart_level(player_t* player) {
