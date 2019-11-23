@@ -23,12 +23,12 @@ int _solve(char* maze, int x, int y, char* sol, int exit_x, int exit_y) {
 	assert(maze != NULL);
 	assert(sol != NULL);
 	if (x == exit_x && y == exit_y) {
-		sol[y * LVL_W + x] = SOL_PATH;
+		sol[y * LVL_W + x] = B_PATH;
 		return 1;
 	}
 
 	if (is_safe(sol, x, y)) {
-		sol[y * LVL_W + x] = SOL_PATH;
+		sol[y * LVL_W + x] = B_PATH;
 		if (_solve(maze, x + 1, y, sol, exit_x, exit_y)) {
 			return 1;
 		}
@@ -67,8 +67,8 @@ void overlay_solution(char* maze, int exit_x, int exit_y) {
 	solve(maze, exit_x, exit_y);
 	for (int y = 0; y < LVL_H; ++y) {
 		for (int x = 0; x < LVL_W; ++x) {
-			if (solution[y * LVL_W + x] == SOL_PATH) {
-				maze[y * LVL_W + x] = maze[y * LVL_W + x] == SOL_PATH ? B_FLOOR : SOL_PATH;
+			if (solution[y * LVL_W + x] == B_PATH) {
+				maze[y * LVL_W + x] = maze[y * LVL_W + x] == B_PATH ? B_FLOOR : B_PATH;
 			}
 		}
 	}
@@ -149,6 +149,7 @@ char* generate_doodads(char const* maze) {
 	#define OOZE_COUNT 30
 	#define SKULL_COUNT 10
 	#define PIPE_COUNT 30
+	#define TORCH_COUNT 10
 
 	srand(time(NULL));
 	for (i = 0; i < BRICK_COUNT; ++i) {
@@ -171,6 +172,10 @@ char* generate_doodads(char const* maze) {
 		while (maze[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_WALL);
 		dd[dy * LVL_W + dx] = rand() % 2 ? D_PIPE1 : D_PIPE2;
 	}
+	for (i = 0; i < TORCH_COUNT; ++i) {
+		while (maze[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_WALL);
+		dd[dy * LVL_W + dx] = D_TORCH;
+	}
 	return dd;
 }
 
@@ -179,5 +184,5 @@ void maze_test_macros() {
 	printf("LVL_W    = %3d\n", LVL_W);
 	printf("B_WALL   = %3d\n", B_WALL);
 	printf("B_FLOOR  = %3d\n", B_FLOOR);
-	printf("SOL_PATH = %3d\n", SOL_PATH);
+	printf("B_PATH = %3d\n", B_PATH);
 }

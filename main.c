@@ -8,6 +8,7 @@
 #include <assert.h>
 
 #include "macro_definitions.h"
+#include "structs/arraylist.h"
 #include "draw_misc.h"
 
 #include "sprites.h"
@@ -21,6 +22,12 @@ typedef struct player {
 	int x;
 	int y;
 } player_t;
+
+typedef struct light {
+	int x;
+	int y;
+	float intensity;
+} light_t;
 
 void sig_handler(int);
 
@@ -38,6 +45,12 @@ void render_loop(player_t*, SDL_Texture*);
 
 void restart_level(player_t*);
 
+float calc_light(light_t* source, int x, int y, float current_light);
+
+float calc_light_player(player_t* player, int x, int y, float current_light);
+
+void get_lights(char const* dd, alist_t* arr);
+
 static char* level = NULL;
 static char* doodads = NULL;
 
@@ -47,6 +60,16 @@ static int exit_y = -1;
 volatile static int running = 1;
 volatile static char l_sw = 0;
 volatile static char l_type[] = {1, 2, 3};
+
+alist_t* lights = NULL;
+
+static light_t light_sources[] = {
+		{5,  10, 1.0f},
+		{24, 15, 1.0f},
+		{20, 30, 1.0f},
+		{10, 40, 1.0f},
+		{5,  25, 1.0f}
+};
 
 static SDL_Window* window = NULL;
 static SDL_Renderer* renderer = NULL;
@@ -88,8 +111,11 @@ int main(int argc, char** argv) {
 	if (!font)
 		fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
 
+	lights = alist_new(sizeof(light_t));
+
 	level = generate_level(&exit_x, &exit_y);
 	doodads = generate_doodads(level);
+	get_lights(doodads, lights);
 
 	player_t player = {1, 1};
 
@@ -120,6 +146,7 @@ int main(int argc, char** argv) {
 		SDL_UpdateWindowSurface(window);
 		SDL_Delay(1000 / target_fps);
 	}
+	alist_destroy(lights);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	TTF_Quit();
@@ -230,9 +257,11 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 
 	assert(doodads != NULL);
 	assert(level != NULL);
-	float light_amp, light, a, dist;
+	float light;
+
 	int xoff = (int) (player->x / SCR_W) * SCR_W;
 	int yoff = (int) (player->y / SCR_H) * SCR_H;
+
 	SDL_Rect dest;
 	SDL_Rect src;
 	for (int y = 0; y < SCR_H; ++y) {
@@ -242,26 +271,13 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 			dest.x = BSIZE * x;
 			dest.y = BSIZE * y;
 
-			light = 255;
-			light_amp = 3;
-			a = 1 - (10 - (rand() % 25)) / 100.0f;
-			dist = dist_to(player->x, player->y, x + xoff, y + yoff);
-			if (l_type[l_sw] == 1) {
-				if (bresenham(player->x, player->y, x + xoff, y + yoff, level, LVL_W, B_WALL)) {
-					// calculate lighting depending on distance to the player (only light source)
-					light = 255.0f / (dist / light_amp) * a;
-					light = light > 255 ? 255 : light;
-				} else {
-					light = 196.0f / dist * a;
-					light = light > 196 ? 196 : light;
-				}
-
-			} else if (l_type[l_sw] == 2) {
-				light = 255.0f / (dist / light_amp) * a;
-				light = light > 255 ? 255 : light;
-			} else if (l_type[l_sw] == 3) {
-				light = 255;
+			light = 0;
+			for (int i = 0; i < 10; ++i) {
+				light_t* source = alist_get(lights, i);
+				light = calc_light(source, x + xoff, y + yoff, light);
 			}
+			light = calc_light_player(player, x + xoff, y + yoff, light);
+
 			SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
 
 			switch (lvlxy(0, 0)) {
@@ -279,7 +295,7 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 						load_sprite(SPR_TWALL, &src);
 					}
 					break;
-				case SOL_PATH:
+				case B_PATH:
 					if (lvlxy(0, -1) == B_WALL) {
 						load_sprite(SPR_TFLOOR, &src);
 					} else {
@@ -316,11 +332,11 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 						SDL_RenderCopy(renderer, tex, &src, &dest);
 						load_sprite(SPR_OOZEF, &src);
 						dest.y += BSIZE;
-						if (lvlxy(0, 0) == SOL_PATH) {
+						if (lvlxy(0, 0) == B_PATH) {
 							SDL_RenderCopy(renderer, tex, &src, &dest);
 							load_sprite(SPR_COIN, &src);
 						}
-						if ((lvlxy(0, 0) == B_FLOOR || lvlxy(0, 0) == SOL_PATH) &&
+						if ((lvlxy(0, 0) == B_FLOOR || lvlxy(0, 0) == B_PATH) &&
 							lvlxy(0, 1) == B_WALL) {
 							SDL_RenderCopy(renderer, tex, &src, &dest);
 							load_sprite(SPR_TWALL, &src);
@@ -341,6 +357,9 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 				case D_PIPE2:
 					load_sprite(SPR_PIPE2, &src);
 					break;
+				case D_TORCH:
+					load_sprite(SPR_TORCH, &src);
+					break;
 			}
 			SDL_RenderCopy(renderer, tex, &src, &dest);
 
@@ -351,7 +370,7 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 
 				if (lvlxy(0, 1) == B_WALL &&
 					(lvlxy(0, 0) == B_FLOOR ||
-					 lvlxy(0, 0) == SOL_PATH)) {
+					 lvlxy(0, 0) == B_PATH)) {
 					load_sprite(SPR_TWALL, &src);
 					SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
 					SDL_RenderCopy(renderer, tex, &src, &dest);
@@ -362,12 +381,55 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 	#undef lvlxy
 }
 
+
+float calc_light(light_t* source, int x, int y, float current_light) {
+	float rel_light = 0, dist, a;;
+	a = 1 - (10 - (rand() % 25)) / 100.0f;
+	dist = dist_to(source->x, source->y, x, y);
+	if (l_type[l_sw] == 1) {
+		if (bresenham(source->x, source->y, x, y, level, LVL_W, B_WALL)) {
+			rel_light = 255.0f / (dist / source->intensity) * a;
+			rel_light = rel_light > 255 ? 255 : rel_light;
+		} else {
+			rel_light = 196.0f / dist * a;
+			rel_light = rel_light > 196 ? 196 : rel_light;
+		}
+
+	} else if (l_type[l_sw] == 2) {
+		rel_light = 255.0f / (dist / source->intensity) * a;
+		rel_light = rel_light > 255 ? 255 : rel_light;
+	} else if (l_type[l_sw] == 3) {
+		rel_light = 255;
+	}
+	return fmaxf(rel_light, current_light);
+}
+
+float calc_light_player(player_t* player, int x, int y, float current_light) {
+	light_t source = {player->x, player->y, 3};
+	return calc_light(&source, x, y, current_light);
+}
+
 void restart_level(player_t* player) {
 	free(level);
 	level = generate_level(&exit_x, &exit_y);
 	free(doodads);
 	doodads = generate_doodads(level);
-	// while (level[(player->y = rand() % LVL_H) * LVL_W + (player->x = rand() % LVL_W)] == B_WALL);
+	get_lights(doodads, lights);
 	player->x = 1;
 	player->y = 1;
+}
+
+void get_lights(char const* dd, alist_t* arr) {
+	alist_clear(arr);
+	light_t source;
+	for (int y = 0; y < LVL_H; ++y) {
+		for (int x = 0; x < LVL_W; ++x) {
+			if (dd[y * LVL_W + x] == D_TORCH) {
+				source.x = x;
+				source.y = y;
+				source.intensity = 1.0f;
+				alist_add(arr, &source);
+			}
+		}
+	}
 }

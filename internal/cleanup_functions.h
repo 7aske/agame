@@ -9,11 +9,16 @@
 
 #include <SDL2/SDL.h>
 
-void _sdldt(SDL_Texture** tex){
+void _sdldt(SDL_Texture** tex) {
 	SDL_DestroyTexture(*tex);
 }
-void _sdlfs(SDL_Surface** surf){
+
+void _sdlfs(SDL_Surface** surf) {
 	SDL_FreeSurface(*surf);
+}
+
+void autofree(void** ptr) {
+	free(*ptr);
 }
 
 #endif //SDLGAME_CLEANUP_FUNCTIONS_H

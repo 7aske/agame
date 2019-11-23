@@ -27,6 +27,6 @@ int bresenham(int x0, int y0, int x1, int y1, char const* lvl, int lvl_w, int b_
 
 
 float dist_to(int sx, int sy, int dx, int dy) {
-	return sqrtf(powf(sx - dx, 2) + powf(sy - dy, 2));
+	return sqrtf(powf((float)sx - (float)dx, 2) + powf((float)sy - (float)dy, 2));
 }
 

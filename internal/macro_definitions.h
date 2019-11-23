@@ -21,16 +21,23 @@
 #define LVL_W (WRLD_W * SCR_W)
 #define LVL_H (WRLD_H * SCR_H)
 
-#define SOL_PATH 38
-#define B_WALL 35
-#define B_FLOOR 32
+enum blocks_e {
+	B_NONE,
+	B_PATH,
+	B_WALL,
+	B_FLOOR
+};
 
-#define D_SKULL 1
-#define D_PIPE1 2
-#define D_PIPE2 3
-#define D_OOZE 4
-#define D_GRATE 5
-#define D_BRICK 6
+enum doodads_e {
+	D_NONE,
+	D_SKULL,
+	D_PIPE1,
+	D_PIPE2,
+	D_OOZE,
+	D_GRATE,
+	D_BRICK,
+	D_TORCH
+};
 
 
 #endif //AGAME_MACRO_DEFINITIONS_H

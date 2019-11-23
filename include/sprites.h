@@ -6,6 +6,7 @@
 #define BSIZE_SPR 16
 
 typedef enum {
+	SPR_NONE,
 	SPR_PLAYER,
 	SPR_FLOOR,
 	SPR_WALL,
@@ -22,6 +23,7 @@ typedef enum {
 	SPR_OOZE,
 	SPR_OOZEF,
 	SPR_SKULL,
+	SPR_TORCH,
 } sprites_e;
 
 void load_sprite(sprites_e spr, SDL_Rect* src) {
@@ -46,6 +48,10 @@ void load_sprite(sprites_e spr, SDL_Rect* src) {
 			break;
 		case SPR_COIN:
 			src->x = 4 * 16;
+			src->y = 9 * 16;
+			break;
+		case SPR_TORCH:
+			src->x = 5 * 16;
 			src->y = 9 * 16;
 			break;
 		case SPR_ENEMY1:
