@@ -5,45 +5,16 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <signal.h>
-#include <time.h>
 #include <assert.h>
 
+#include "macro_definitions.h"
+
 #include "sprites.h"
-
-// screen size
-#define WIDTH (1024)
-#define HEIGHT (768)
-
-// apparent block size on the screen
-#define BSIZE (32)
-
-// blocks count in the viewport
-#define SCR_W (WIDTH / BSIZE)
-#define SCR_H (HEIGHT / BSIZE)
-
-#define WRLD_W (3)
-#define WRLD_H (2)
-
-#define LVL_W (WRLD_W * SCR_W)
-#define LVL_H (WRLD_H * SCR_H)
-
-#define SOL_PATH 38
-#define B_WALL 35
-#define B_FLOOR 32
-
-#define D_SKULL 1
-#define D_PIPE1 2
-#define D_PIPE2 3
-#define D_OOZE 4
-#define D_GRATE 5
-#define D_BRICK 6
+#include "maze.h"
+#include "util.h"
 
 #define printd(x) printf("%d\n")
 #define printt(x, y) printf("(%d, %d)\n", x, y)
-#define printlvl(lvl) if(lvl != NULL)\
-for (int lvly = 0; lvly < LVL_H; ++lvly){\
-for (int lvlx = 0; lvlx < LVL_W; ++lvlx) putc(lvl[lvly * LVL_W + lvlx], stdout);\
-putc('\n', stdout);}\
 
 typedef struct player {
 	int x;
@@ -64,29 +35,11 @@ void game_loop(player_t*);
 
 void render_loop(player_t*, SDL_Texture*);
 
-char* generate_level();
-
-char* generate_doodads();
-
 void restart_level(player_t*);
-
-float dist_to(int, int, int, int);
 
 void draw_fps(int const*);
 
 void draw_help();
-
-void carve_maze(char*, int, int, int, int);
-
-int bresenham(int, int, int, int, char*);
-
-int is_safe(char const*, int, int);
-
-int _solve(char*, int, int, char*);
-
-void solve(char*);
-
-void overlay_solution(char*, char const*);
 
 char* level = NULL;
 char* doodads = NULL;
@@ -105,7 +58,7 @@ uint32_t render_flags = SDL_RENDERER_ACCELERATED;
 TTF_Font* font;
 
 int main(int argc, char** argv) {
-
+	maze_test_macros();
 	signal(SIGINT, sig_handler);
 
 	//The surface contained by the window
@@ -143,8 +96,8 @@ int main(int argc, char** argv) {
 	if (!font)
 		fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
 
-	level = generate_level();
-	doodads = generate_doodads();
+	level = generate_level(&exit_x, &exit_y);
+	doodads = generate_doodads(level);
 
 
 	player_t player = {1, 1};
@@ -220,7 +173,7 @@ void event_handler(SDL_Event* ev, player_t* player) {
 					restart_level(player);
 					break;
 				case SDL_SCANCODE_O:
-					solve(level);
+					solve(level, &solution, exit_x, exit_y);
 					overlay_solution(level, solution);
 					break;
 				case SDL_SCANCODE_L:
@@ -238,25 +191,25 @@ void player_move(player_t* player, SDL_Scancode code) {
 	switch (code) {
 		case SDL_SCANCODE_W:
 		case SDL_SCANCODE_UP:
-			if (level[((player->y - 1) * LVL_W) + player->x] != '#') {
+			if (level[((player->y - 1) * LVL_W) + player->x] != B_WALL) {
 				player->y -= 1;
 			}
 			break;
 		case SDL_SCANCODE_A:
 		case SDL_SCANCODE_LEFT:
-			if (level[(player->y * LVL_W) + player->x - 1] != '#') {
+			if (level[(player->y * LVL_W) + player->x - 1] != B_WALL) {
 				player->x -= 1;
 			}
 			break;
 		case SDL_SCANCODE_S:
 		case SDL_SCANCODE_DOWN:
-			if (level[((player->y + 1) * LVL_W) + player->x] != '#') {
+			if (level[((player->y + 1) * LVL_W) + player->x] != B_WALL) {
 				player->y += 1;
 			}
 			break;
 		case SDL_SCANCODE_D:
 		case SDL_SCANCODE_RIGHT:
-			if (level[(player->y * LVL_W) + player->x + 1] != '#') {
+			if (level[(player->y * LVL_W) + player->x + 1] != B_WALL) {
 				player->x += 1;
 			}
 			break;
@@ -298,7 +251,7 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 			a = 1 - (10 - (rand() % 25)) / 100.0f;
 			dist = dist_to(player->x, player->y, x + xoff, y + yoff);
 			if (l_type[l_sw] == 1) {
-				if (bresenham(player->x, player->y, x + xoff, y + yoff, level)) {
+				if (bresenham(player->x, player->y, x + xoff, y + yoff, level, LVL_W, B_WALL)) {
 					// calculate lighting depending on distance to the player (only light source)
 					light = 255.0f / (dist / light_amp) * a;
 					light = light > 255 ? 255 : light;
@@ -318,83 +271,83 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 
 			switch (level[((y + yoff) * LVL_W) + x + xoff]) {
 				case B_WALL:
-					query_sprite(SPR_WALL, &src);
+					load_sprite(SPR_WALL, &src);
 					break;
 				case B_FLOOR:
 					if (level[((y + yoff - 1) * LVL_W) + x + xoff] == B_WALL) {
-						query_sprite(SPR_TFLOOR, &src);
+						load_sprite(SPR_TFLOOR, &src);
 					} else {
-						query_sprite(SPR_FLOOR, &src);
+						load_sprite(SPR_FLOOR, &src);
 					}
 					if (level[((y + yoff + 1) * LVL_W) + x + xoff] == B_WALL) {
 						SDL_RenderCopy(renderer, tex, &src, &dest);
-						query_sprite(SPR_TWALL, &src);
+						load_sprite(SPR_TWALL, &src);
 					}
 					break;
 				case SOL_PATH:
 					if (level[((y + yoff - 1) * LVL_W) + x + xoff] == B_WALL) {
-						query_sprite(SPR_TFLOOR, &src);
+						load_sprite(SPR_TFLOOR, &src);
 					} else {
-						query_sprite(SPR_FLOOR, &src);
+						load_sprite(SPR_FLOOR, &src);
 					}
 					if (level[((y + yoff + 1) * LVL_W) + x + xoff] == B_WALL) {
 						SDL_RenderCopy(renderer, tex, &src, &dest);
-						query_sprite(SPR_TWALL, &src);
+						load_sprite(SPR_TWALL, &src);
 					}
 					SDL_RenderCopy(renderer, tex, &src, &dest);
-					query_sprite(SPR_COIN, &src);
+					load_sprite(SPR_COIN, &src);
 					break;
 
 			}
 			switch (doodads[((y + yoff) * LVL_W) + x + xoff]) {
 				case D_BRICK:
-					query_sprite(SPR_MBRICK, &src);
+					load_sprite(SPR_MBRICK, &src);
 					break;
 				case D_GRATE:
 					if (level[((y + yoff + 1) * LVL_W) + x + xoff] != B_WALL) {
-						query_sprite(SPR_GRATE, &src);
+						load_sprite(SPR_GRATE, &src);
 					}
 					break;
 				case D_OOZE:
 					if (level[((y + yoff - 1) * LVL_W) + x + xoff] == B_WALL) {
-						query_sprite(SPR_OOZE, &src);
+						load_sprite(SPR_OOZE, &src);
 						dest.y -= BSIZE;
 						SDL_RenderCopy(renderer, tex, &src, &dest);
-						query_sprite(SPR_OOZEF, &src);
+						load_sprite(SPR_OOZEF, &src);
 						dest.y += BSIZE;
 						if (level[((y + yoff) * LVL_W) + x + xoff] == B_FLOOR &&
 							level[((y + yoff + 1) * LVL_W) + x + xoff] == B_WALL) {
 							SDL_RenderCopy(renderer, tex, &src, &dest);
-							query_sprite(SPR_TWALL, &src);
+							load_sprite(SPR_TWALL, &src);
 						}
 					}
 					break;
 				case D_SKULL:
 					SDL_RenderCopy(renderer, tex, &src, &dest);
-					query_sprite(SPR_SKULL, &src);
+					load_sprite(SPR_SKULL, &src);
 					if (level[((y + yoff + 1) * LVL_W) + x + xoff] == B_WALL) {
 						SDL_RenderCopy(renderer, tex, &src, &dest);
-						query_sprite(SPR_TWALL, &src);
+						load_sprite(SPR_TWALL, &src);
 					}
 					break;
 				case D_PIPE1:
-					query_sprite(SPR_PIPE, &src);
+					load_sprite(SPR_PIPE, &src);
 					break;
 				case D_PIPE2:
-					query_sprite(SPR_PIPE2, &src);
+					load_sprite(SPR_PIPE2, &src);
 					break;
 			}
 			SDL_RenderCopy(renderer, tex, &src, &dest);
 
 			if (x + xoff == player->x && y + yoff == player->y) {
-				query_sprite(SPR_PLAYER, &src);
+				load_sprite(SPR_PLAYER, &src);
 				SDL_SetTextureColorMod(tex, 255, 255, 255);
 				SDL_RenderCopy(renderer, tex, &src, &dest);
 
 				if (level[((y + yoff + 1) * LVL_W) + x + xoff] == B_WALL &&
 					(level[((y + yoff) * LVL_W) + x + xoff] == B_FLOOR ||
 					 level[((y + yoff) * LVL_W) + x + xoff] == SOL_PATH)) {
-					query_sprite(SPR_TWALL, &src);
+					load_sprite(SPR_TWALL, &src);
 					SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
 					SDL_RenderCopy(renderer, tex, &src, &dest);
 				}
@@ -403,75 +356,6 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 	}
 }
 
-void carve_maze(char* maze, int width, int height, int x, int y) {
-	int x1, y1;
-	int x2, y2;
-	int dx, dy;
-	int dir, count;
-
-	dir = rand() % 4;
-	count = 0;
-	while (count < 4) {
-		dx = 0;
-		dy = 0;
-		switch (dir) {
-			case 0:
-				dx = 1;
-				break;
-			case 1:
-				dy = 1;
-				break;
-			case 2:
-				dx = -1;
-				break;
-			default:
-				dy = -1;
-				break;
-		}
-		x1 = x + dx;
-		y1 = y + dy;
-		x2 = x1 + dx;
-		y2 = y1 + dy;
-		if (x2 > 0 && x2 < width - 1 &&
-			y2 > 0 && y2 < height - 1 &&
-			maze[y1 * width + x1] == B_WALL &&
-			maze[y2 * width + x2] == B_WALL) {
-			maze[y1 * width + x1] = B_FLOOR;
-			maze[y2 * width + x2] = B_FLOOR;
-			x = x2;
-			y = y2;
-			dir = rand() % 4;
-			count = 0;
-		} else {
-			dir = (dir + 1) % 4;
-			count += 1;
-		}
-	}
-
-}
-
-
-char* generate_level() {
-	int x, y;
-	char* lvl = (char*) malloc(LVL_H * LVL_W);
-	memset(lvl, B_WALL, LVL_H * LVL_W);
-	srand(time(NULL));
-	for (y = 1; y < LVL_H; y += 2) {
-		for (x = 1; x < LVL_W; x += 2) {
-			carve_maze(lvl, LVL_W, LVL_H, x, y);
-		}
-	}
-
-	lvl[1 * LVL_W + 1] = B_FLOOR;
-	exit_x = (LVL_W - 3);
-	exit_y = (LVL_H - 2);
-	lvl[exit_y * LVL_W + exit_x] = B_FLOOR;
-	return lvl;
-}
-
-float dist_to(int sx, int sy, int dx, int dy) {
-	return sqrtf(powf(sx - dx, 2) + powf(sy - dy, 2));
-}
 
 void draw_help() {
 	#define LINE_H 16
@@ -548,121 +432,12 @@ void draw_fps(int const* fps) {
 	SDL_DestroyTexture(message);
 }
 
-int bresenham(int x0, int y0, int x1, int y1, char* lvl) {
-	int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
-	int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
-	int err = dx + dy, e2; /* error value e_xy */
-
-	for (;;) {
-		if (x0 == x1 && y0 == y1) break;
-		e2 = 2 * err;
-		if (e2 >= dy) {
-			err += dy;
-			x0 += sx;
-		}
-		if (e2 <= dx) {
-			err += dx;
-			y0 += sy;
-		}
-		if (x0 == x1 && y0 == y1) return 1;
-		if (lvl[y0 * LVL_W + x0] == B_WALL) return 0;
-	}
-}
-
-int is_safe(char const* maze, int x, int y) {
-	assert(maze != NULL);
-	if (x >= 1 && x < LVL_W - 1 && y >= 1 && y < LVL_H - 1 && maze[y * LVL_W + x] == B_FLOOR)
-		return 1;
-	return 0;
-}
-
-
-int _solve(char* maze, int x, int y, char* sol) {
-	if (x == exit_x && y == exit_y) {
-		sol[y * LVL_W + x] = SOL_PATH;
-		return 1;
-	}
-
-	if (is_safe(sol, x, y)) {
-		sol[y * LVL_W + x] = SOL_PATH;
-		if (_solve(maze, x + 1, y, sol)) {
-			return 1;
-		}
-		if (_solve(maze, x, y + 1, sol)) {
-			return 1;
-		}
-		if (_solve(maze, x - 1, y, sol)) {
-			return 1;
-		}
-		if (_solve(maze, x, y - 1, sol)) {
-			return 1;
-		}
-		sol[y * LVL_W + x] = B_FLOOR;
-		return 0;
-	}
-	return 0;
-}
-
-void solve(char* maze) {
-	if (solution != NULL)
-		free(solution);
-	solution = malloc(LVL_W * LVL_H);
-	memcpy(solution, maze, LVL_W * LVL_H);
-	_solve(maze, 1, 1, solution);
-}
-
 void restart_level(player_t* player) {
 	free(level);
-	level = generate_level();
+	level = generate_level(&exit_x, &exit_y);
 	free(doodads);
-	doodads = generate_doodads();
+	doodads = generate_doodads(level);
 	// while (level[(player->y = rand() % LVL_H) * LVL_W + (player->x = rand() % LVL_W)] == B_WALL);
 	player->x = 1;
 	player->y = 1;
-}
-
-void overlay_solution(char* maze, char const* sol) {
-	if (maze != NULL && sol != NULL) {
-		for (int y = 0; y < LVL_H; ++y) {
-			for (int x = 0; x < LVL_W; ++x) {
-				if (sol[y * LVL_W + x] == SOL_PATH) {
-					maze[y * LVL_W + x] = maze[y * LVL_W + x] == SOL_PATH ? B_FLOOR : SOL_PATH;
-				}
-			}
-		}
-	}
-}
-
-char* generate_doodads() {
-	assert(level != NULL);
-	char* dd = calloc(LVL_H * LVL_W, sizeof(char));
-	int i, dx, dy;
-	#define BRICK_COUNT 80
-	#define GRATE_COUNT 30
-	#define OOZE_COUNT 30
-	#define SKULL_COUNT 10
-	#define PIPE_COUNT 30
-
-	srand(time(NULL));
-	for (i = 0; i < BRICK_COUNT; ++i) {
-		while (level[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_WALL);
-		dd[dy * LVL_W + dx] = D_BRICK;
-	}
-	for (i = 0; i < GRATE_COUNT; ++i) {
-		while (level[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_WALL);
-		dd[dy * LVL_W + dx] = D_GRATE;
-	}
-	for (i = 0; i < OOZE_COUNT; ++i) {
-		while (level[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_FLOOR);
-		dd[dy * LVL_W + dx] = D_OOZE;
-	}
-	for (i = 0; i < SKULL_COUNT; ++i) {
-		while (level[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_FLOOR);
-		dd[dy * LVL_W + dx] = D_SKULL;
-	}
-	for (i = 0; i < PIPE_COUNT; ++i) {
-		while (level[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_WALL);
-		dd[dy * LVL_W + dx] = rand() % 2 ? D_PIPE1 : D_PIPE2;
-	}
-	return dd;
 }

@@ -1,11 +1,15 @@
 cmake_minimum_required(VERSION 3.14)
-project(sdlgame C)
+project(agame C)
 set(CMAKE_C_STANDARD 99)
+set(TARGET agame)
+
+include_directories(include)
+add_subdirectory(src)
+add_executable(${TARGET} main.c src/maze.c src/util.c)
 
 find_package(SDL2 REQUIRED SDL2)
-add_executable(sdlgame main.c)
 
-target_link_libraries(sdlgame m)
-target_link_libraries(sdlgame SDL2)
-target_link_libraries(sdlgame SDL2_image)
-target_link_libraries(sdlgame SDL2_ttf)
+target_link_libraries(${TARGET} m)
+target_link_libraries(${TARGET} SDL2)
+target_link_libraries(${TARGET} SDL2_image)
+target_link_libraries(${TARGET} SDL2_ttf)

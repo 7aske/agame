@@ -3,7 +3,7 @@
 
 #include <SDL2/SDL.h>
 
-#define BIZE_SPR 16
+#define BSIZE_SPR 16
 
 typedef enum {
 	SPR_PLAYER,
@@ -22,11 +22,11 @@ typedef enum {
 	SPR_OOZE,
 	SPR_OOZEF,
 	SPR_SKULL,
-} SPRITES;
+} sprites_e;
 
-void query_sprite(SPRITES spr, SDL_Rect* src) {
-	src->w = BIZE_SPR;
-	src->h = BIZE_SPR;
+void load_sprite(sprites_e spr, SDL_Rect* src) {
+	src->w = BSIZE_SPR;
+	src->h = BSIZE_SPR;
 	switch (spr) {
 		case SPR_PLAYER:
 			src->x = 0;
