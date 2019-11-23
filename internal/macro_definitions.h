@@ -25,7 +25,8 @@ enum blocks_e {
 	B_NONE,
 	B_PATH,
 	B_WALL,
-	B_FLOOR
+	B_FLOOR,
+	B_EXIT
 };
 
 enum doodads_e {

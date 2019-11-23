@@ -68,7 +68,9 @@ void overlay_solution(char* maze, int exit_x, int exit_y) {
 	for (int y = 0; y < LVL_H; ++y) {
 		for (int x = 0; x < LVL_W; ++x) {
 			if (solution[y * LVL_W + x] == B_PATH) {
-				maze[y * LVL_W + x] = maze[y * LVL_W + x] == B_PATH ? B_FLOOR : B_PATH;
+				if (maze[y * LVL_W + x] != B_EXIT) {
+					maze[y * LVL_W + x] = maze[y * LVL_W + x] == B_PATH ? B_FLOOR : B_PATH;
+				}
 			}
 		}
 	}
@@ -134,9 +136,12 @@ char* generate_level(int* exit_x, int* exit_y) {
 	}
 
 	lvl[1 * LVL_W + 1] = B_FLOOR;
-	*exit_x = (LVL_W - 3);
-	*exit_y = (LVL_H - 2);
-	lvl[*exit_y * LVL_W + *exit_x] = B_FLOOR;
+	while (lvl[(y = (rand() % (LVL_H - SCR_H)) + SCR_H) * LVL_W + (x = (rand() % (LVL_W - SCR_W)) + SCR_W)] == B_WALL);
+	printf("%d %d\n", LVL_W, LVL_H);
+	printf("%d %d\n", x, y);
+	*exit_x = x;
+	*exit_y = y;
+	lvl[*exit_y * LVL_W + *exit_x] = B_EXIT;
 	return lvl;
 }
 
@@ -185,4 +190,5 @@ void maze_test_macros() {
 	printf("B_WALL   = %3d\n", B_WALL);
 	printf("B_FLOOR  = %3d\n", B_FLOOR);
 	printf("B_PATH = %3d\n", B_PATH);
+	printf("B_EXIT = %3d\n", B_EXIT);
 }

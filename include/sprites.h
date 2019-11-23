@@ -1,11 +1,14 @@
 #ifndef AGAME_SPRITES_H
 #define AGAME_SPRITES_H
 
-#include <SDL2/SDL.h>
-
 #define BSIZE_SPR 16
 
-typedef enum {
+typedef struct spr_rect {
+	int x, y;
+	int w, h;
+} spr_rect;
+
+typedef enum sprites {
 	SPR_NONE,
 	SPR_PLAYER,
 	SPR_FLOOR,
@@ -15,6 +18,7 @@ typedef enum {
 	SPR_TFLOOR,
 	SPR_DFLOOR,
 	SPR_COIN,
+	SPR_DLADDER,
 	SPR_ENEMY1,
 	SPR_PIPE,
 	SPR_PIPE2,
@@ -26,81 +30,85 @@ typedef enum {
 	SPR_TORCH,
 } sprites_e;
 
-void load_sprite(sprites_e spr, SDL_Rect* src) {
+void load_sprite(sprites_e spr, spr_rect* src) {
 	src->w = BSIZE_SPR;
 	src->h = BSIZE_SPR;
 	switch (spr) {
 		case SPR_PLAYER:
-			src->x = 0;
-			src->y = 4 * 16;
+			src->x = 4 * BSIZE_SPR;
+			src->y = 8 * BSIZE_SPR;
 			break;
 		case SPR_DFLOOR:
-			src->x = 4 * 16;
-			src->y = 7 * 16;
+			src->x = 4 * BSIZE_SPR;
+			src->y = 6 * BSIZE_SPR;
 			break;
 		case SPR_WALL:
-			src->x = 16;
-			src->y = 16;
+			src->x = 1 * BSIZE_SPR;
+			src->y = 1 * BSIZE_SPR;
 			break;
 		case SPR_LFLOOR:
-			src->x = 4 * 16;
-			src->y = 8 * 16;
+			src->x = 4 * BSIZE_SPR;
+			src->y = 7 * BSIZE_SPR;
 			break;
 		case SPR_COIN:
-			src->x = 4 * 16;
-			src->y = 9 * 16;
+			src->x = 4 * BSIZE_SPR;
+			src->y = 14 * BSIZE_SPR;
+			break;
+		case SPR_DLADDER:
+			src->x = 5 * BSIZE_SPR;
+			src->y = 14 * BSIZE_SPR;
 			break;
 		case SPR_TORCH:
-			src->x = 5 * 16;
-			src->y = 9 * 16;
+			src->x = 6 * BSIZE_SPR;
+			src->y = 10 * BSIZE_SPR;
 			break;
 		case SPR_ENEMY1:
-			src->x = 0;
-			src->y = 6 * 16;
+			src->x = 0 * BSIZE_SPR;
+			src->y = 9 * BSIZE_SPR;
 			break;
 		case SPR_PIPE:
-			src->x = 4 * 16;
-			src->y = 0;
+			src->x = 4 * BSIZE_SPR;
+			src->y = 0 * BSIZE_SPR;
 			break;
 		case SPR_MBRICK:
-			src->x = 4 * 16;
-			src->y = 2 * 16;
+			src->x = 4 * BSIZE_SPR;
+			src->y = 2 * BSIZE_SPR;
 			break;
 		case SPR_TFLOOR:
-			src->x = 0;
-			src->y = 2 * 16;
+			src->x = 0 * BSIZE_SPR;
+			src->y = 2 * BSIZE_SPR;
 			break;
 		case SPR_FLOOR:
-			src->x = 1 * 16;
-			src->y = 2 * 16;
+			src->x = 2 * BSIZE_SPR;
+			src->y = 3 * BSIZE_SPR;
 			break;
 		case SPR_GRATE:
-			src->x = 4 * 16;
-			src->y = 1 * 16;
+			src->x = 4 * BSIZE_SPR;
+			src->y = 1 * BSIZE_SPR;
 			break;
 		case SPR_OOZE:
-			src->x = 3 * 16;
-			src->y = 1 * 16;
+			src->x = 3 * BSIZE_SPR;
+			src->y = 1 * BSIZE_SPR;
 			break;
 		case SPR_OOZEF:
-			src->x = 3 * 16;
-			src->y = 2 * 16;
+			src->x = 3 * BSIZE_SPR;
+			src->y = 2 * BSIZE_SPR;
 			break;
 		case SPR_TWALL:
-			src->x = 0;
-			src->y = 0;
+			src->x = 0 * BSIZE_SPR;
+			src->y = 0 * BSIZE_SPR;
 			break;
 		case SPR_PIPE2:
-			src->x = 3 * 16;
-			src->y = 0;
+			src->x = 3 * BSIZE_SPR;
+			src->y = 0 * BSIZE_SPR;
 			break;
 		case SPR_SKULL:
-			src->x = 2 * 16;
-			src->y = 2 * 16;
+			src->x = 1 * BSIZE_SPR;
+			src->y = 3 * BSIZE_SPR;
 			break;
 		default:
-			src->x = 0;
-			src->y = 0;
+			src->x = 0 * BSIZE_SPR;
+			src->y = 0 * BSIZE_SPR;
 	}
 }
 

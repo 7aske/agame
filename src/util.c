@@ -4,7 +4,7 @@
 
 #include "util.h"
 
-int bresenham(int x0, int y0, int x1, int y1, char const* lvl, int lvl_w, int b_wall) {
+int bresenham(int x0, int y0, int x1, int y1, char const* level, int width, int boundary_block) {
 	int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
 	int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
 	int err = dx + dy, e2; /* error value e_xy */
@@ -21,7 +21,7 @@ int bresenham(int x0, int y0, int x1, int y1, char const* lvl, int lvl_w, int b_
 			y0 += sy;
 		}
 		if (x0 == x1 && y0 == y1) return 1;
-		if (lvl[y0 * lvl_w + x0] == b_wall) return 0;
+		if (level[y0 * width + x0] == boundary_block) return 0;
 	}
 }
 
