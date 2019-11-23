@@ -11,6 +11,8 @@
 #include "structs/arraylist.h"
 #include "draw_misc.h"
 
+#include "entity.h"
+
 #include "sprites.h"
 #include "maze.h"
 #include "util.h"
@@ -18,16 +20,6 @@
 #define printd(x) printf("%d\n")
 #define printt(x, y) printf("(%d, %d)\n", x, y)
 
-typedef struct player {
-	int x;
-	int y;
-} player_t;
-
-typedef struct light {
-	int x;
-	int y;
-	float intensity;
-} light_t;
 
 void sig_handler(int);
 
@@ -35,21 +27,19 @@ void quit();
 
 void sdlerr_handler();
 
-void event_handler(SDL_Event*, player_t*);
+void event_handler(SDL_Event*, entity_t*);
 
-void player_move(player_t*, SDL_Scancode);
+void player_move(entity_t*, SDL_Scancode);
 
-void game_loop(player_t*);
+void game_loop(entity_t*);
 
-void render_loop(player_t*, SDL_Texture*);
+void render_loop(entity_t*, SDL_Texture*);
 
-void restart_level(player_t*);
+void restart_level(entity_t*);
 
-float calc_light(light_t* source, int x, int y, float current_light);
+float calc_light(entity_t* source, int x, int y, float current_light);
 
-float calc_light_player(player_t* player, int x, int y, float current_light);
-
-void get_lights(char const* dd, alist_t* arr);
+void get_lights(char const* dd, alist_t* list);
 
 static char* level = NULL;
 static char* doodads = NULL;
@@ -62,14 +52,6 @@ volatile static char l_sw = 0;
 volatile static char l_type[] = {1, 2, 3};
 
 alist_t* lights = NULL;
-
-static light_t light_sources[] = {
-		{5,  10, 1.0f},
-		{24, 15, 1.0f},
-		{20, 30, 1.0f},
-		{10, 40, 1.0f},
-		{5,  25, 1.0f}
-};
 
 static SDL_Window* window = NULL;
 static SDL_Renderer* renderer = NULL;
@@ -111,13 +93,13 @@ int main(int argc, char** argv) {
 	if (!font)
 		fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
 
-	lights = alist_new(sizeof(light_t));
+	lights = alist_new(sizeof(entity_t));
 
 	level = generate_level(&exit_x, &exit_y);
 	doodads = generate_doodads(level);
 	get_lights(doodads, lights);
 
-	player_t player = {1, 1};
+	entity_t player = {1, 1, {}, E_PLAYER};
 
 	// setup code
 	Uint32 startclock = 0;
@@ -173,7 +155,8 @@ void quit() {
 	running = 0;
 }
 
-void event_handler(SDL_Event* ev, player_t* player) {
+void event_handler(SDL_Event* ev, entity_t* player) {
+	assert(player->type == E_PLAYER);
 	switch (ev->type) {
 		case SDL_QUIT:
 			quit();
@@ -207,7 +190,8 @@ void event_handler(SDL_Event* ev, player_t* player) {
 	}
 }
 
-void player_move(player_t* player, SDL_Scancode code) {
+void player_move(entity_t* player, SDL_Scancode code) {
+	assert(player->type == E_PLAYER);
 	switch (code) {
 		case SDL_SCANCODE_W:
 		case SDL_SCANCODE_UP:
@@ -240,7 +224,7 @@ void player_move(player_t* player, SDL_Scancode code) {
 
 }
 
-void game_loop(player_t* player) {
+void game_loop(entity_t* player) {
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {
 		event_handler(&event, player);
@@ -251,7 +235,7 @@ void game_loop(player_t* player) {
 	}
 }
 
-void render_loop(player_t* player, SDL_Texture* tex) {
+void render_loop(entity_t* player, SDL_Texture* tex) {
 	#undef lvlxy
 	#define lvlxy(ox, oy) level[((y + yoff + (oy)) * LVL_W) + (x + xoff + (ox))]
 
@@ -273,10 +257,10 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 
 			light = 0;
 			for (int i = 0; i < 10; ++i) {
-				light_t* source = alist_get(lights, i);
+				entity_t* source = alist_get(lights, i);
 				light = calc_light(source, x + xoff, y + yoff, light);
 			}
-			light = calc_light_player(player, x + xoff, y + yoff, light);
+			light = calc_light(player, x + xoff, y + yoff, light);
 
 			SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
 
@@ -382,13 +366,19 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 }
 
 
-float calc_light(light_t* source, int x, int y, float current_light) {
+float calc_light(entity_t* source, int x, int y, float current_light) {
+	float intensity = 4;
+	if (source->type == E_LIGHT) {
+		intensity = source->light.intensity;
+	}
 	float rel_light = 0, dist, a;;
+
+
 	a = 1 - (10 - (rand() % 25)) / 100.0f;
 	dist = dist_to(source->x, source->y, x, y);
 	if (l_type[l_sw] == 1) {
 		if (bresenham(source->x, source->y, x, y, level, LVL_W, B_WALL)) {
-			rel_light = 255.0f / (dist / source->intensity) * a;
+			rel_light = 255.0f / (dist / intensity) * a;
 			rel_light = rel_light > 255 ? 255 : rel_light;
 		} else {
 			rel_light = 196.0f / dist * a;
@@ -396,7 +386,7 @@ float calc_light(light_t* source, int x, int y, float current_light) {
 		}
 
 	} else if (l_type[l_sw] == 2) {
-		rel_light = 255.0f / (dist / source->intensity) * a;
+		rel_light = 255.0f / (dist / intensity) * a;
 		rel_light = rel_light > 255 ? 255 : rel_light;
 	} else if (l_type[l_sw] == 3) {
 		rel_light = 255;
@@ -404,12 +394,7 @@ float calc_light(light_t* source, int x, int y, float current_light) {
 	return fmaxf(rel_light, current_light);
 }
 
-float calc_light_player(player_t* player, int x, int y, float current_light) {
-	light_t source = {player->x, player->y, 3};
-	return calc_light(&source, x, y, current_light);
-}
-
-void restart_level(player_t* player) {
+void restart_level(entity_t* player) {
 	free(level);
 	level = generate_level(&exit_x, &exit_y);
 	free(doodads);
@@ -419,16 +404,17 @@ void restart_level(player_t* player) {
 	player->y = 1;
 }
 
-void get_lights(char const* dd, alist_t* arr) {
-	alist_clear(arr);
-	light_t source;
+void get_lights(char const* dd, alist_t* list) {
+	alist_clear(list);
+	entity_t source;
 	for (int y = 0; y < LVL_H; ++y) {
 		for (int x = 0; x < LVL_W; ++x) {
 			if (dd[y * LVL_W + x] == D_TORCH) {
 				source.x = x;
 				source.y = y;
-				source.intensity = 1.0f;
-				alist_add(arr, &source);
+				source.light.intensity = 1.0f;
+				source.type = E_LIGHT;
+				alist_add(list, &source);
 			}
 		}
 	}
