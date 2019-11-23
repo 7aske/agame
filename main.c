@@ -95,7 +95,8 @@ int exit_x = -1;
 int exit_y = -1;
 
 volatile int running = 1;
-volatile int l_sw = 1;
+volatile char l_sw = 0;
+volatile char l_type[] = {1, 2, 3};
 
 //The window we'll be rendering to
 SDL_Window* window = NULL;
@@ -173,6 +174,9 @@ int main(int argc, char** argv) {
 
 		SDL_Delay(1000 / 60);
 	}
+	SDL_DestroyTexture(tex);
+	SDL_DestroyRenderer(renderer);
+	SDL_DestroyWindow(window);
 	TTF_Quit();
 	return 0;
 }
@@ -220,7 +224,7 @@ void event_handler(SDL_Event* ev, player_t* player) {
 					overlay_solution(level, solution);
 					break;
 				case SDL_SCANCODE_L:
-					l_sw = !l_sw;
+					l_sw = l_sw == sizeof(l_type) - 1 ? 0 : l_sw + 1;
 					break;
 				case SDL_SCANCODE_Q:
 					quit();
@@ -269,6 +273,9 @@ void game_loop(player_t* player) {
 		event_handler(&event, player);
 	}
 
+	if (player->x == exit_x && player->y == exit_y) {
+		restart_level(player);
+	}
 }
 
 void render_loop(player_t* player, SDL_Texture* tex) {
@@ -286,21 +293,27 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 			dest.x = BSIZE * x;
 			dest.y = BSIZE * y;
 
+			light = 255;
 			light_amp = 3;
 			a = 1 - (10 - (rand() % 25)) / 100.0f;
 			dist = dist_to(player->x, player->y, x + xoff, y + yoff);
-			if (bresenham(player->x, player->y, x + xoff, y + yoff, level)) {
-				// calculate lighting depending on distance to the player (only light source)
+			if (l_type[l_sw] == 1) {
+				if (bresenham(player->x, player->y, x + xoff, y + yoff, level)) {
+					// calculate lighting depending on distance to the player (only light source)
+					light = 255.0f / (dist / light_amp) * a;
+					light = light > 255 ? 255 : light;
+				} else {
+					light = 196.0f / dist * a;
+					light = light > 196 ? 196 : light;
+				}
+
+			} else if (l_type[l_sw] == 2) {
 				light = 255.0f / (dist / light_amp) * a;
 				light = light > 255 ? 255 : light;
-			} else {
-				light = 196.0f / dist * a;
-				light = light > 196 ? 196 : light;
-			}
-
-			if (!l_sw) {
+			} else if (l_type[l_sw] == 3) {
 				light = 255;
 			}
+
 			SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
 
 			switch (level[((y + yoff) * LVL_W) + x + xoff]) {
@@ -350,7 +363,7 @@ void render_loop(player_t* player, SDL_Texture* tex) {
 						query_sprite(SPR_OOZEF, &src);
 						dest.y += BSIZE;
 						if (level[((y + yoff) * LVL_W) + x + xoff] == B_FLOOR &&
-							level[((y + yoff) * LVL_W) + x + xoff] == B_WALL) {
+							level[((y + yoff + 1) * LVL_W) + x + xoff] == B_WALL) {
 							SDL_RenderCopy(renderer, tex, &src, &dest);
 							query_sprite(SPR_TWALL, &src);
 						}
@@ -442,9 +455,9 @@ char* generate_level() {
 	int x, y;
 	char* lvl = (char*) malloc(LVL_H * LVL_W);
 	memset(lvl, B_WALL, LVL_H * LVL_W);
+	srand(time(NULL));
 	for (y = 1; y < LVL_H; y += 2) {
 		for (x = 1; x < LVL_W; x += 2) {
-			srand(time(NULL));
 			carve_maze(lvl, LVL_W, LVL_H, x, y);
 		}
 	}
@@ -503,6 +516,16 @@ void draw_help() {
 	message_rect.w = strlen(line4) * CHAR_W;
 	message_rect.h = LINE_H;
 	SDL_RenderCopy(renderer, message4, NULL, &message_rect);
+
+	SDL_FreeSurface(surfaceMessage1);
+	SDL_FreeSurface(surfaceMessage2);
+	SDL_FreeSurface(surfaceMessage3);
+	SDL_FreeSurface(surfaceMessage4);
+
+	SDL_DestroyTexture(message1);
+	SDL_DestroyTexture(message2);
+	SDL_DestroyTexture(message3);
+	SDL_DestroyTexture(message4);
 }
 
 void draw_fps(int const* fps) {
@@ -521,6 +544,8 @@ void draw_fps(int const* fps) {
 	message_rect.h = LINE_H;
 
 	SDL_RenderCopy(renderer, message, NULL, &message_rect);
+	SDL_FreeSurface(surfaceMessage);
+	SDL_DestroyTexture(message);
 }
 
 int bresenham(int x0, int y0, int x1, int y1, char* lvl) {
@@ -591,7 +616,9 @@ void restart_level(player_t* player) {
 	level = generate_level();
 	free(doodads);
 	doodads = generate_doodads();
-	while (level[(player->y = rand() % LVL_H) * LVL_W + (player->x = rand() % LVL_W)] == B_WALL);
+	// while (level[(player->y = rand() % LVL_H) * LVL_W + (player->x = rand() % LVL_W)] == B_WALL);
+	player->x = 1;
+	player->y = 1;
 }
 
 void overlay_solution(char* maze, char const* sol) {
