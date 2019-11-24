@@ -8,7 +8,6 @@
 #include <assert.h>
 
 #include "macro_definitions.h"
-#include "structs/arraylist.h"
 #include "draw_misc.h"
 
 #include "entity.h"
@@ -16,6 +15,9 @@
 #include "sprites.h"
 #include "maze.h"
 #include "util.h"
+
+// #include "structs/arraylist.h"
+
 
 #define printd(x) printf("%d\n")
 #define printt(x, y) printf("(%d, %d)\n", x, y)
@@ -41,6 +43,8 @@ float calc_light(entity_t* source, int x, int y, float current_light);
 
 void get_lights(char const* dd, alist_t* list);
 
+void spawn_enemies(char const* lvl, alist_t* list);
+
 static char* level = NULL;
 static char* doodads = NULL;
 
@@ -59,6 +63,8 @@ volatile static char l_sw = 0;
 volatile static char l_type[] = {L_LOS, L_NOLOS, L_DISABLED};
 
 alist_t* lights = NULL;
+alist_t* enemies = NULL;
+alist_t* entities = NULL;
 
 static SDL_Window* window = NULL;
 static SDL_Renderer* renderer = NULL;
@@ -101,12 +107,17 @@ int main(int argc, char** argv) {
 		fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
 
 	lights = alist_new(sizeof(entity_t));
+	enemies = alist_new(sizeof(entity_t));
+	entities = alist_new(sizeof(entity_t));
 
 	level = generate_level(&exit_x, &exit_y);
 	doodads = generate_doodads(level);
 	get_lights(doodads, lights);
+	spawn_enemies(level, enemies);
 
-	entity_t player = {1, 1, {}, E_PLAYER};
+	entity_t player = {1, 1, 100, {}, E_PLAYER};
+	player.player.dmg = 50;
+	player.player.dir = DIR_DOWN;
 
 	// setup code
 	Uint32 startclock = 0;
@@ -135,6 +146,7 @@ int main(int argc, char** argv) {
 		SDL_UpdateWindowSurface(window);
 		SDL_Delay(1000 / target_fps);
 	}
+
 	alist_destroy(lights);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
@@ -180,6 +192,9 @@ void event_handler(SDL_Event* ev, entity_t* player) {
 				case SDL_SCANCODE_RIGHT:
 					player_move(player, ev->key.keysym.scancode);
 					break;
+				case SDL_SCANCODE_SPACE:
+					player_shoot(player, entities);
+					break;
 				case SDL_SCANCODE_R:
 					restart_level(player);
 					break;
@@ -197,31 +212,35 @@ void event_handler(SDL_Event* ev, entity_t* player) {
 	}
 }
 
-void player_move(entity_t* player, SDL_Scancode code) {
-	assert(player->type == E_PLAYER);
+void player_move(entity_t* e, SDL_Scancode code) {
+	assert(e->type == E_PLAYER);
 	switch (code) {
 		case SDL_SCANCODE_W:
 		case SDL_SCANCODE_UP:
-			if (level[((player->y - 1) * LVL_W) + player->x] != B_WALL) {
-				player->y -= 1;
+			if (level[((e->y - 1) * LVL_W) + e->x] != B_WALL) {
+				e->y -= 1;
+				e->player.dir = DIR_UP;
 			}
 			break;
 		case SDL_SCANCODE_A:
 		case SDL_SCANCODE_LEFT:
-			if (level[(player->y * LVL_W) + player->x - 1] != B_WALL) {
-				player->x -= 1;
+			if (level[(e->y * LVL_W) + e->x - 1] != B_WALL) {
+				e->x -= 1;
+				e->player.dir = DIR_LEFT;
 			}
 			break;
 		case SDL_SCANCODE_S:
 		case SDL_SCANCODE_DOWN:
-			if (level[((player->y + 1) * LVL_W) + player->x] != B_WALL) {
-				player->y += 1;
+			if (level[((e->y + 1) * LVL_W) + e->x] != B_WALL) {
+				e->y += 1;
+				e->player.dir = DIR_DOWN;
 			}
 			break;
 		case SDL_SCANCODE_D:
 		case SDL_SCANCODE_RIGHT:
-			if (level[(player->y * LVL_W) + player->x + 1] != B_WALL) {
-				player->x += 1;
+			if (level[(e->y * LVL_W) + e->x + 1] != B_WALL) {
+				e->x += 1;
+				e->player.dir = DIR_RIGHT;
 			}
 			break;
 		default:
@@ -233,8 +252,44 @@ void player_move(entity_t* player, SDL_Scancode code) {
 
 void game_loop(entity_t* player) {
 	SDL_Event event;
+	entity_t* e;
+	entity_t* e1;
+	uint j, i;
 	while (SDL_PollEvent(&event)) {
 		event_handler(&event, player);
+	}
+	//processing entities
+	for (j = 0; j < alist_size(entities); ++j) {
+		e = alist_get(entities, j);
+		switch (e->type) {
+			case E_PEW:
+				if (!pew_move(e, level, LVL_W, B_WALL)) {
+					alist_rm_idx(entities, j--);
+				} else {
+					for (i = 0; i < alist_size(enemies); ++i) {
+						e1 = alist_get(enemies, i);
+						if (e->x == e1->x && e->y == e1->y) {
+							alist_rm_idx(entities, j--);
+							e1->hp -= e->pew.dmg;
+						}
+					}
+				}
+				break;
+		}
+	}
+
+	// processing enemies
+	for (j = 0; j < alist_size(enemies); ++j) {
+		e = alist_get(enemies, j);
+		if (e->hp <= 0) {
+			alist_rm_idx(enemies, j--);
+		} else {
+			// enemy_randmove(e, level, LVL_W, B_WALL);
+			enemy_lockmove(e, player, level, LVL_W, B_WALL);
+			if (player->x == e->x && player->y == e->y) {
+				restart_level(player);
+			}
+		}
 	}
 
 	if (player->x == exit_x && player->y == exit_y) {
@@ -358,6 +413,39 @@ void render_loop(entity_t* player, SDL_Texture* tex) {
 			}
 			SDL_RenderCopy(renderer, tex, &src, &dest);
 
+			// render enemies
+			for (uint j = 0; j < alist_size(enemies); ++j) {
+				entity_t* enemy = alist_get(enemies, j);
+				if (x + xoff == enemy->x && y + yoff == enemy->y) {
+					load_sprite(SPR_ENEMY1, (spr_rect*) &src);
+					SDL_RenderCopy(renderer, tex, &src, &dest);
+					if (lvlxy(0, 1) == B_WALL &&
+						(lvlxy(0, 0) == B_FLOOR ||
+						 lvlxy(0, 0) == B_PATH)) {
+						load_sprite(SPR_TWALL, (spr_rect*) &src);
+						SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
+						SDL_RenderCopy(renderer, tex, &src, &dest);
+					}
+				}
+			}
+
+			// render entities
+			for (uint j = 0; j < alist_size(entities); ++j) {
+				entity_t* e = alist_get(entities, j);
+				if (x + xoff == e->x && y + yoff == e->y) {
+					load_sprite(SPR_COIN, (spr_rect*) &src);
+					SDL_RenderCopy(renderer, tex, &src, &dest);
+					// if (lvlxy(0, 1) == B_WALL &&
+					// 	(lvlxy(0, 0) == B_FLOOR ||
+					// 	 lvlxy(0, 0) == B_PATH)) {
+					// 	load_sprite(SPR_TWALL, (spr_rect*) &src);
+					// 	SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
+					// 	SDL_RenderCopy(renderer, tex, &src, &dest);
+					// }
+				}
+			}
+
+			// render players
 			if (x + xoff == player->x && y + yoff == player->y) {
 				load_sprite(SPR_PLAYER, (spr_rect*) &src);
 				SDL_SetTextureColorMod(tex, 255, 255, 255);
@@ -412,6 +500,7 @@ void restart_level(entity_t* player) {
 	free(doodads);
 	doodads = generate_doodads(level);
 	get_lights(doodads, lights);
+	spawn_enemies(level, enemies);
 	player->x = 1;
 	player->y = 1;
 }
@@ -429,5 +518,19 @@ void get_lights(char const* dd, alist_t* list) {
 				alist_add(list, &source);
 			}
 		}
+	}
+}
+
+void spawn_enemies(char const* lvl, alist_t* list) {
+	assert(lvl != NULL);
+	alist_clear(list);
+	#define ENEMY_COUNT 20
+	entity_t enemy = enemy_new(0, 0);
+	int i, dx, dy;
+	for (i = 0; i < ENEMY_COUNT; ++i) {
+		while (lvl[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_FLOOR);
+		enemy.x = dx;
+		enemy.y = dy;
+		alist_add(list, &enemy);
 	}
 }

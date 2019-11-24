@@ -27,6 +27,29 @@ int bresenham(int x0, int y0, int x1, int y1, char const* level, int width, int 
 
 
 float dist_to(int sx, int sy, int dx, int dy) {
-	return sqrtf(powf((float)sx - (float)dx, 2) + powf((float)sy - (float)dy, 2));
+	return sqrtf(powf((float) sx - (float) dx, 2) + powf((float) sy - (float) dy, 2));
+}
+
+coord_t bresenham_next(int x0, int y0, int x1, int y1, char const* level, int width, int boundary_block) {
+	coord_t result = {0, 0};
+
+	int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+	int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+	int err = dx + dy, e2; /* error value e_xy */
+
+	e2 = 2 * err;
+	if (e2 >= dy) {
+		err += dy;
+		result.x = sx;
+	}
+	if (e2 <= dx) {
+		err += dx;
+		result.y = sy;
+	}
+	// if (x0 == x1 && y0 == y1) return result;
+	// if (level[(y0 + result.y) * width + x0] == boundary_block) {
+	// 	result.y = 0;
+	// }
+	return result;
 }
 

@@ -5,7 +5,7 @@ set(TARGET agame)
 
 include_directories(include internal)
 add_subdirectory(src)
-add_executable(${TARGET} main.c src/maze.c src/util.c internal/cleanup_functions.h internal/draw_misc.h include/entity.h)
+add_executable(${TARGET} main.c src/maze.c src/entity.c src/util.c)
 
 find_package(SDL2 REQUIRED SDL2)
 

@@ -20,6 +20,7 @@ typedef enum sprites {
 	SPR_COIN,
 	SPR_DLADDER,
 	SPR_ENEMY1,
+	SPR_ENEMY2,
 	SPR_PIPE,
 	SPR_PIPE2,
 	SPR_MBRICK,
@@ -63,8 +64,12 @@ void load_sprite(sprites_e spr, spr_rect* src) {
 			src->y = 10 * BSIZE_SPR;
 			break;
 		case SPR_ENEMY1:
-			src->x = 0 * BSIZE_SPR;
+			src->x = 2 * BSIZE_SPR;
 			src->y = 9 * BSIZE_SPR;
+			break;
+		case SPR_ENEMY2:
+			src->x = 2 * BSIZE_SPR;
+			src->y = 10 * BSIZE_SPR;
 			break;
 		case SPR_PIPE:
 			src->x = 4 * BSIZE_SPR;
