@@ -17,7 +17,7 @@
 #include "util.h"
 
 // #include "structs/arraylist.h"
-
+#define TARGET_FPS 60
 
 #define printd(x) printf("%d\n")
 #define printt(x, y) printf("(%d, %d)\n", x, y)
@@ -33,7 +33,7 @@ void event_handler(SDL_Event*, entity_t*);
 
 void player_move(entity_t*, SDL_Scancode);
 
-void game_loop(entity_t*);
+void game_loop(double delta_time, entity_t*);
 
 void render_loop(entity_t*, SDL_Texture*);
 
@@ -61,6 +61,8 @@ enum light_e {
 volatile static int running = 1;
 volatile static char l_sw = 0;
 volatile static char l_type[] = {L_LOS, L_NOLOS, L_DISABLED};
+volatile static int level_count = 0;
+
 
 alist_t* lights = NULL;
 alist_t* enemies = NULL;
@@ -119,35 +121,39 @@ int main(int argc, char** argv) {
 	player.player.dmg = 50;
 	player.player.dir = DIR_DOWN;
 
+	const double FRAME_TIME = 1.0 / 60.0;  // delta time for 60 FPS
+
+
 	// setup code
 	Uint32 startclock = 0;
 	Uint32 deltaclock = 0;
-	Uint32 currentFPS = 0;
-	startclock = SDL_GetTicks();
-	int target_fps = 60;
+	Uint32 lastclock = 0;
+	SDL_Event event;
 
 	while (running) {
 		SDL_RenderClear(renderer);
 
-		game_loop(&player);
-		render_loop(&player, tex);
-
-		deltaclock = SDL_GetTicks() - startclock;
-		startclock = SDL_GetTicks();
-
-		if (deltaclock != 0) {
-			currentFPS = 1000 / deltaclock;
-			draw_fps(renderer, font, (int const*) &currentFPS);
+		while (SDL_PollEvent(&event)) {
+			event_handler(&event, &player);
 		}
 
-		draw_help(renderer, font);
+		startclock = SDL_GetTicks();
+		deltaclock = lastclock - startclock;
+		lastclock = startclock;
+		printf("%d %d \n", deltaclock, startclock);
 
+		game_loop(0, &player);
+		render_loop(&player, tex);
+		draw_help(renderer, font);
 		SDL_RenderPresent(renderer);
 		SDL_UpdateWindowSurface(window);
-		SDL_Delay(1000 / target_fps);
+
+		SDL_Delay(1000 / (TARGET_FPS - deltaclock));
 	}
 
 	alist_destroy(lights);
+	alist_destroy(enemies);
+	alist_destroy(entities);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	TTF_Quit();
@@ -250,14 +256,10 @@ void player_move(entity_t* e, SDL_Scancode code) {
 
 }
 
-void game_loop(entity_t* player) {
-	SDL_Event event;
+void game_loop(double delta_time, entity_t* player) {
 	entity_t* e;
 	entity_t* e1;
 	uint j, i;
-	while (SDL_PollEvent(&event)) {
-		event_handler(&event, player);
-	}
 	//processing entities
 	for (j = 0; j < alist_size(entities); ++j) {
 		e = alist_get(entities, j);

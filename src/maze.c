@@ -189,6 +189,6 @@ void maze_test_macros() {
 	printf("LVL_W    = %3d\n", LVL_W);
 	printf("B_WALL   = %3d\n", B_WALL);
 	printf("B_FLOOR  = %3d\n", B_FLOOR);
-	printf("B_PATH = %3d\n", B_PATH);
-	printf("B_EXIT = %3d\n", B_EXIT);
+	printf("B_PATH   = %3d\n", B_PATH);
+	printf("B_EXIT   = %3d\n", B_EXIT);
 }

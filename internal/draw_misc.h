@@ -41,18 +41,21 @@ extern void draw_help(SDL_Renderer* renderer, TTF_Font* font) {
 			* const line1 = "O - solve maze",
 			* const line2 = "L - toggle light",
 			* const line3 = "R - generate new maze",
-			* const line4 = "Q - quit game";
+			* const line4 = "Q - quit game",
+			* const line5 = "Spc - shoot";
 
-	SDL_Color white = {255, 255, 255};
+	SDL_Color white = {240, 240, 240};
 
 	SDL_Surface* msg_surf1 __attribute__((__cleanup__(_sdlfs))) = TTF_RenderText_Solid(font, line1, white);
 	SDL_Surface* msg_surf2 __attribute__((__cleanup__(_sdlfs))) = TTF_RenderText_Solid(font, line2, white);
 	SDL_Surface* msg_surf3 __attribute__((__cleanup__(_sdlfs))) = TTF_RenderText_Solid(font, line3, white);
 	SDL_Surface* msg_surf4 __attribute__((__cleanup__(_sdlfs))) = TTF_RenderText_Solid(font, line4, white);
+	SDL_Surface* msg_surf5 __attribute__((__cleanup__(_sdlfs))) = TTF_RenderText_Solid(font, line5, white);
 	SDL_Texture* msg_tex1 __attribute__((__cleanup__(_sdldt))) = SDL_CreateTextureFromSurface(renderer, msg_surf1);
 	SDL_Texture* msg_tex2 __attribute__((__cleanup__(_sdldt))) = SDL_CreateTextureFromSurface(renderer, msg_surf2);
 	SDL_Texture* msg_tex3 __attribute__((__cleanup__(_sdldt))) = SDL_CreateTextureFromSurface(renderer, msg_surf3);
 	SDL_Texture* msg_tex4 __attribute__((__cleanup__(_sdldt))) = SDL_CreateTextureFromSurface(renderer, msg_surf4);
+	SDL_Texture* msg_tex5 __attribute__((__cleanup__(_sdldt))) = SDL_CreateTextureFromSurface(renderer, msg_surf5);
 
 	SDL_Rect msg_rect;
 
@@ -79,6 +82,12 @@ extern void draw_help(SDL_Renderer* renderer, TTF_Font* font) {
 	msg_rect.w = strlen(line4) * CHAR_W;
 	msg_rect.h = LINE_H;
 	SDL_RenderCopy(renderer, msg_tex4, NULL, &msg_rect);
+
+	msg_rect.x = 5;
+	msg_rect.y = HEIGHT - 5 * LINE_H;
+	msg_rect.w = strlen(line5) * CHAR_W;
+	msg_rect.h = LINE_H;
+	SDL_RenderCopy(renderer, msg_tex5, NULL, &msg_rect);
 }
 
 
