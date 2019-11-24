@@ -9,15 +9,15 @@
 
 #include <SDL2/SDL.h>
 
-void __attribute__((used)) _sdldt(SDL_Texture** tex)  {
+static void __attribute__((used)) _sdldt(SDL_Texture** tex)  {
 	SDL_DestroyTexture(*tex);
 }
 
-void __attribute__((used)) _sdlfs(SDL_Surface** surf) {
+static void __attribute__((used)) _sdlfs(SDL_Surface** surf) {
 	SDL_FreeSurface(*surf);
 }
 
-void __attribute__((used)) _afree(void** ptr) {
+static void __attribute__((used)) _afree(void** ptr) {
 	free(*ptr);
 }
 
