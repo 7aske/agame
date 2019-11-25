@@ -5,6 +5,8 @@
 #ifndef AGAME_MACRO_DEFINITIONS_H
 #define AGAME_MACRO_DEFINITIONS_H
 
+#define TARGET_FPS 60
+
 // screen size
 #define WIDTH (1024)
 #define HEIGHT (768)

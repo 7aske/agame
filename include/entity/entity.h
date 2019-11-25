@@ -17,7 +17,9 @@
 #define DEFAULT_NEXT_MOVE 60
 #define DEFAULT_DMG 50
 
+#define RAND_DIR ((rand() % 3) + 1)
 enum dir {
+	DIR_NONE,
 	DIR_UP,
 	DIR_DOWN,
 	DIR_LEFT,
@@ -67,20 +69,7 @@ typedef struct entity {
 	enum entities type;
 } entity_t;
 
-extern int pew_move(entity_t* e, char const* lvl, int width, int bound);
-
-extern void player_shoot(entity_t* e, alist_t* entities);
-
-extern entity_t enemy_new(int x, int y);
-
 extern int entity_move(entity_t* e, char const* lvl, int width, int bound, enum dir dir);
 
-void enemy_search(entity_t* e, entity_t* tar, char const* level, int width, int height, int boundary, int force_search);
-
-extern void enemy_randmove(entity_t* e, char const* lvl, int width, int bound);
-
-void enemy_fpath(entity_t* e, char const* lvl, int width, int bound);
-
-extern void enemy_lockmove(entity_t* e, entity_t* e1, char const* lvl, int width, int bound);
 
 #endif //SDLGAME_ENTITY_H
