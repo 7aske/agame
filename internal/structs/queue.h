@@ -19,11 +19,11 @@
 
 
 typedef struct queue {
-	uint size;
+	int size;
 	llist_t* data;
 } queue_t;
 
-static queue_t* queue_new(uint size) {
+static queue_t* queue_new(int size) {
 	queue_t* newqueue = (queue_t*) calloc(1, sizeof(queue_t));
 	newqueue->data = llist_new(size);
 	newqueue->size = size;

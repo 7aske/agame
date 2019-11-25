@@ -9,13 +9,16 @@
 
 #include <assert.h>
 #include <stdlib.h>
+
 #include "structs/arraylist.h"
 #include "util.h"
 
-#define DEFAULT_HP 100
-#define DEFAULT_NEXT_SEARCH 400
-#define DEFAULT_NEXT_MOVE 60
-#define DEFAULT_DMG 50
+#define E_DEF_HP 100.0f
+#define E_DEF_NEXT_SEARCH 400
+#define E_DEF_NEXT_MOVE 60
+#define E_DEF_PNEXT_MOVE 5
+#define E_DEF_PNEXT_SHOT 20
+#define E_DEF_DMG 40.0f
 
 #define RAND_DIR ((rand() % 3) + 1)
 enum dir {
@@ -36,6 +39,8 @@ enum entities {
 
 typedef struct player {
 	enum dir dir;
+	int next_move;
+	int next_shot;
 	int dmg;
 } player_t;
 
@@ -59,7 +64,7 @@ typedef struct pew {
 typedef struct entity {
 	int x;
 	int y;
-	int hp;
+	float hp;
 	union {
 		player_t player;
 		enemy_t enemy;

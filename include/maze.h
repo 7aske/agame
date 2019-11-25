@@ -15,8 +15,29 @@
 
 #include "macro_definitions.h"
 
+enum blocks_e {
+	B_NONE,
+	B_PATH,
+	B_WALL,
+	B_FLOOR,
+	B_EXIT
+};
+
+enum doodads_e {
+	D_NONE,
+	D_SKULL,
+	D_PIPE1,
+	D_PIPE2,
+	D_OOZE,
+	D_GRATE,
+	D_BRICK,
+	D_TORCH
+};
+
+
 typedef struct maze {
 	char* maze;
+	char* doodads;
 	int w;
 	int h;
 	int b_wall;
@@ -26,17 +47,21 @@ typedef struct maze {
 
 static char* solution = NULL;
 
-static int is_safe(char const* maze, int x, int y);
+static int _is_safe(char const* maze, int x, int y);
 
 static int _solve(char* maze, int x, int y, char* sol, int exit_x, int exit_y);
 
-static void solve(char* maze, int exit_x, int exit_y);
+static void maze_solve(char* maze, int exit_x, int exit_y);
 
 extern void overlay_solution(char* maze, int exit_x, int exit_y);
 
-extern void carve_maze(char* maze, int width, int height, int x, int y);
+extern void maze_carve(char* maze, int width, int height, int x, int y);
 
-extern maze_t generate_maze();
+extern void maze_new(maze_t* maze);
+
+extern void maze_clear(maze_t* maze);
+
+extern char* generate_maze();
 
 extern char* generate_doodads(char const* maze);
 

@@ -10,20 +10,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdint.h>
 #include <assert.h>
 
 #ifndef _ptr
 #define _ptr(x, size) &(size){(x)}
 #endif
 
-
 #define ALIST_CAP 16
 
 
 typedef struct alist_t {
-	uint len;
-	uint cap;
+	int len;
+	int cap;
 	size_t size;
 	void* data;
 
@@ -36,7 +34,7 @@ static void alist_destroy(alist_t* list) {
 	free(list);
 }
 
-static alist_t* alist_new(uint size) {
+static alist_t* alist_new(int size) {
 	alist_t* list = malloc(sizeof(alist_t));
 	list->len = 0;
 	list->size = size;
@@ -73,7 +71,7 @@ static void alist_add(alist_t* list, void* data) {
 	memcpy(list->data + list->len++ * list->size, data, list->size);
 }
 
-static void alist_add_at(alist_t* list, void* data, uint index) {
+static void alist_add_at(alist_t* list, void* data, int index) {
 	if (index <= list->len) {
 		if (list->len + 1 == list->cap) {
 			_alist_resize(list);
@@ -92,15 +90,15 @@ static void alist_clear(alist_t* list) {
 	list->data = calloc(list->cap, list->size);
 }
 
-static void* alist_get(alist_t* list, uint index) {
+static void* alist_get(alist_t* list, int index) {
 	if (index < list->len)
 		return list->data + index * list->size;
 	else
 		return NULL;
 }
 
-static uint32_t alist_idxof(alist_t* list, void* elem) {
-	for (uint i = 0; i < list->len; ++i) {
+static int alist_idxof(alist_t* list, void* elem) {
+	for (int i = 0; i < list->len; ++i) {
 		if (list->cmpfunc(list->data + i * list->size, elem, list->size) == 0) {
 			return i;
 		}
@@ -108,8 +106,8 @@ static uint32_t alist_idxof(alist_t* list, void* elem) {
 	return -1;
 }
 
-static int32_t alist_idxof_cmp(alist_t* list, void* elem, int( * cmpfunc)(const void*, const void*, unsigned long)) {
-	for (uint i = 0; i < list->len; ++i) {
+static int alist_idxof_cmp(alist_t* list, void* elem, int( * cmpfunc)(const void*, const void*, unsigned long)) {
+	for (int i = 0; i < list->len; ++i) {
 		if (cmpfunc(list->data + i * list->size, elem, list->size) == 0) {
 			return i;
 		}
@@ -117,12 +115,12 @@ static int32_t alist_idxof_cmp(alist_t* list, void* elem, int( * cmpfunc)(const 
 	return -1;
 }
 
-static int32_t alist_isempty(alist_t* list) {
+static int alist_isempty(alist_t* list) {
 	return list->len == 0;
 }
 
-static void alist_rm_idx(alist_t* list, uint index) {
-	if (index == list->len - 1 && index >= 0) {
+static void alist_rm_idx(alist_t* list, int index) {
+	if (index == list->len - 1) {
 		list->len--;
 	} else if (index < list->len) {
 		memmove(list->data + index * list->size, list->data + (index + 1) * list->size,
@@ -132,7 +130,7 @@ static void alist_rm_idx(alist_t* list, uint index) {
 }
 
 static void alist_rm(alist_t* list, void* elem) {
-	int32_t index = alist_idxof(list, elem);
+	int index = alist_idxof(list, elem);
 	if (index > -1) {
 		alist_rm_idx(list, index);
 	}
@@ -140,19 +138,19 @@ static void alist_rm(alist_t* list, void* elem) {
 
 static void alist_rm_cmp(alist_t* list, void* elem, int(* cmpfunc)(const void*, const void*, unsigned long)) {
 	assert(cmpfunc != NULL);
-	int32_t index = alist_idxof_cmp(list, elem, cmpfunc);
+	int index = alist_idxof_cmp(list, elem, cmpfunc);
 	if (index > -1) {
 		alist_rm_idx(list, index);
 	}
 }
 
-static void alist_set(alist_t* list, void* elem, uint index) {
+static void alist_set(alist_t* list, void* elem, int index) {
 	if (index < list->len) {
 		memcpy(list->data + index * list->size, elem, list->size);
 	}
 }
 
-static uint alist_size(alist_t* list) {
+static int alist_size(alist_t* list) {
 	return list->len;
 }
 
@@ -163,7 +161,7 @@ static void alist_shrink(alist_t* list) {
 
 static void alist_print(alist_t* list, void(* _printfunc)(const void*)) {
 	assert(_printfunc != NULL);
-	for (uint i = 0; i < list->len; ++i) {
+	for (int i = 0; i < list->len; ++i) {
 		_printfunc(list->data + i * list->size);
 	}
 }

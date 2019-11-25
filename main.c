@@ -6,75 +6,42 @@
 #include <SDL2/SDL_image.h>
 #include <signal.h>
 #include <assert.h>
+#include <state.h>
 
 #include "macro_definitions.h"
 #include "draw_misc.h"
 
-#include "entity/enemy.h"
 #include "entity/player.h"
 #include "entity/pew.h"
 #include "event/event.h"
+#include "entity/enemy.h"
 
 #include "sprites.h"
 #include "maze.h"
 #include "util.h"
 
-
 #define printd(x) printf("%d\n")
 #define printt(x, y) printf("(%d, %d)\n", x, y)
-
-typedef enum lights {
-	L_NONE,
-	L_LOS,
-	L_NOLOS,
-	L_DISABLED
-} light_e;
-
-typedef struct game_state {
-	entity_t player;
-
-	alist_t* lights;
-	alist_t* enemies;
-	alist_t* entities;
-	queue_t* event_queue;
-
-	maze_t level;
-	char* doodads;
-
-	int level_count;
-	int score;
-
-	light_e l_sw;
-	light_e l_type[3];
-} game_state_t;
 
 void sig_handler(int);
 
 void quit();
 
-void sdlerr_handler();
+void sdlerr_handler()__attribute__((noreturn));
 
 void event_handler(SDL_Event*);
 
-void player_move(entity_t*, SDL_Scancode);
-
 void Update(double delta_time);
 
-void Render(SDL_Texture*);
+void Render();
 
 void Event(double delta_time);
 
-void restart_level();
-
 float calc_light(entity_t* source, int x, int y, float current_light);
-
-void get_lights(char const* dd, alist_t* list);
-
-void spawn_enemies(char const* lvl, alist_t* list);
 
 void init_game();
 
-game_state_t state;
+state_t state;
 
 volatile static int running = 1;
 
@@ -82,12 +49,7 @@ static SDL_Window* window = NULL;
 static SDL_Renderer* renderer = NULL;
 static uint32_t render_flags = SDL_RENDERER_ACCELERATED;
 static TTF_Font* font;
-
-
-void inc_score() {
-	state.score++;
-}
-
+static SDL_Texture* tex;
 
 int main(int argc, char** argv) {
 	maze_test_macros();
@@ -109,13 +71,15 @@ int main(int argc, char** argv) {
 							  SDL_WINDOW_SHOWN);
 	if (!window)
 		sdlerr_handler();
+	SDL_SetWindowTitle(window, WINDOW_TITLE);
+	SDL_SetWindowResizable(window, SDL_FALSE);
 
 	renderer = SDL_CreateRenderer(window, -1, render_flags);
 	if (!renderer)
 		sdlerr_handler();
 
 	surface = IMG_Load("res/sprites.png");
-	SDL_Texture* tex __attribute__((cleanup(_sdldt))) = SDL_CreateTextureFromSurface(renderer, surface);
+	tex = SDL_CreateTextureFromSurface(renderer, surface);
 	SDL_FreeSurface(surface);
 	if (!tex)
 		sdlerr_handler();
@@ -124,7 +88,6 @@ int main(int argc, char** argv) {
 	if (!font)
 		fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
 
-	const double FRAME_TIME = 1.0 / 60.0;  // delta time for 60 FPS
 	init_game();
 
 	// setup code
@@ -155,20 +118,13 @@ int main(int argc, char** argv) {
 		SDL_Delay(1000 / TARGET_FPS);
 	}
 
-	alist_destroy(state.lights);
+	alist_destroy(state.light_emitters);
 	alist_destroy(state.enemies);
 	alist_destroy(state.entities);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	TTF_Quit();
 	SDL_Quit();
-	// just for valgrind tidyness
-	for (uint i = 0; i < alist_size(state.enemies); ++i) {
-		entity_t* e = alist_get(state.enemies, i);
-		if (e != NULL && e->enemy.path != NULL) {
-			stack_destroy(e->enemy.path);
-		}
-	}
 	return 0;
 }
 
@@ -206,13 +162,13 @@ void event_handler(SDL_Event* ev) {
 				case SDL_SCANCODE_DOWN:
 				case SDL_SCANCODE_D:
 				case SDL_SCANCODE_RIGHT:
-					player_move(&state.player, ev->key.keysym.scancode);
+					player_move(&state.player, ev->key.keysym.scancode, &state.level);
 					break;
 				case SDL_SCANCODE_SPACE:
 					player_shoot(&state.player, state.entities);
 					break;
 				case SDL_SCANCODE_R:
-					restart_level();
+					event_dispatch(&state, ev_game_restart);
 					break;
 				case SDL_SCANCODE_O:
 					overlay_solution(state.level.maze, state.level.exit_x, state.level.exit_y);
@@ -228,56 +184,21 @@ void event_handler(SDL_Event* ev) {
 	}
 }
 
-void player_move(entity_t* e, SDL_Scancode code) {
-	assert(e->type == E_PLAYER);
-	switch (code) {
-		case SDL_SCANCODE_W:
-		case SDL_SCANCODE_UP:
-			if (state.level.maze[((e->y - 1) * LVL_W) + e->x] != B_WALL) {
-				e->y -= 1;
-				e->player.dir = DIR_UP;
-			}
-			break;
-		case SDL_SCANCODE_A:
-		case SDL_SCANCODE_LEFT:
-			if (state.level.maze[(e->y * LVL_W) + e->x - 1] != B_WALL) {
-				e->x -= 1;
-				e->player.dir = DIR_LEFT;
-			}
-			break;
-		case SDL_SCANCODE_S:
-		case SDL_SCANCODE_DOWN:
-			if (state.level.maze[((e->y + 1) * LVL_W) + e->x] != B_WALL) {
-				e->y += 1;
-				e->player.dir = DIR_DOWN;
-			}
-			break;
-		case SDL_SCANCODE_D:
-		case SDL_SCANCODE_RIGHT:
-			if (state.level.maze[(e->y * LVL_W) + e->x + 1] != B_WALL) {
-				e->x += 1;
-				e->player.dir = DIR_RIGHT;
-			}
-			break;
-		default:
-			break;
-	}
-
-
-}
 
 void Event(double delta_time) {
 	event_t* ev;
 	while (!queue_isempty(state.event_queue)) {
 		ev = queue_dequeue(state.event_queue);
-		ev->callback();
+		ev->callback(&state);
 	}
 }
 
 void Update(double delta_time) {
 	entity_t* e;
 	entity_t* e1;
-	uint j, i;
+	int j, i;
+
+
 	//processing entities
 	for (j = 0; j < alist_size(state.entities); ++j) {
 		e = alist_get(state.entities, j);
@@ -297,7 +218,6 @@ void Update(double delta_time) {
 				break;
 		}
 	}
-	event_t ev;
 	// processing enemies
 	for (j = 0; j < alist_size(state.enemies); ++j) {
 		e = alist_get(state.enemies, j);
@@ -305,39 +225,42 @@ void Update(double delta_time) {
 			if (e->enemy.path != NULL) {
 				stack_destroy(e->enemy.path);
 			}
-			ev.callback = inc_score;
-			queue_enqueue(state.event_queue, &ev);
+			event_dispatch(&state, ev_score_incr);
 			alist_rm_idx(state.enemies, j--);
 
 		} else {
 			enemy_search(e, &(state.player), state.level.maze, state.level.w, state.level.h, state.level.b_wall, 0);
-			// enemy_randmove(e, level, LVL_W, B_WALL);
-			// enemy_lockmove(e, &state.player, state.level.maze, LVL_W, B_WALL);
 			enemy_fpath(e, state.level.maze, state.level.w, B_WALL);
 			if (state.player.x == e->x && state.player.y == e->y) {
-				restart_level(state.player);
+				event_dispatch(&state, ev_game_restart);
 			}
 		}
 	}
-
+	// processing player
+	if (state.player.player.next_move > 0) {
+		state.player.player.next_move--;
+	}
+	if (state.player.player.next_shot > 0) {
+		state.player.player.next_shot--;
+	}
 	if (state.player.x == state.level.exit_x && state.player.y == state.level.exit_y) {
 		state.level_count++;
-		restart_level(&state.player);
+		event_dispatch(&state, ev_level_next);
 	}
 }
 
-void Render(SDL_Texture* tex) {
+void Render() {
 	#undef lvlxy
 	#define lvlxy(ox, oy) state.level.maze[((y + yoff + (oy)) * LVL_W) + (x + xoff + (ox))]
 
-	assert(state.doodads != NULL);
+	assert(state.level.doodads != NULL);
 	assert(state.level.maze != NULL);
 
 	float light;
 	char text_buf[128];
 	int xoff = (int) (state.player.x / SCR_W) * SCR_W;
 	int yoff = (int) (state.player.y / SCR_H) * SCR_H;
-
+	int i;
 	SDL_Rect dest;
 	SDL_Rect src;
 	for (int y = 0; y < SCR_H; ++y) {
@@ -347,9 +270,10 @@ void Render(SDL_Texture* tex) {
 			dest.x = BSIZE * x;
 			dest.y = BSIZE * y;
 
+			// rendering lights
 			light = 0;
-			for (uint i = 0; i < alist_size(state.lights); ++i) {
-				entity_t* source = alist_get(state.lights, i);
+			for (i = 0; i < alist_size(state.light_emitters); ++i) {
+				entity_t* source = alist_get(state.light_emitters, i);
 				if (dist_to(x + xoff, y + yoff, source->x, source->y) < 10) {
 					light = calc_light(source, x + xoff, y + yoff, light);
 				}
@@ -359,6 +283,7 @@ void Render(SDL_Texture* tex) {
 
 			SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
 
+			// rendering background
 			switch (lvlxy(0, 0)) {
 				case B_WALL:
 					load_sprite(SPR_WALL, (spr_rect*) &src);
@@ -398,7 +323,8 @@ void Render(SDL_Texture* tex) {
 			}
 			SDL_RenderCopy(renderer, tex, &src, &dest);
 
-			switch (state.doodads[((y + yoff) * LVL_W) + (x + xoff)]) {
+			// rendering doodads
+			switch (state.level.doodads[((y + yoff) * LVL_W) + (x + xoff)]) {
 				case D_BRICK:
 					load_sprite(SPR_MBRICK, (spr_rect*) &src);
 					break;
@@ -449,12 +375,15 @@ void Render(SDL_Texture* tex) {
 			}
 			SDL_RenderCopy(renderer, tex, &src, &dest);
 
-			// render enemies
-			for (uint j = 0; j < alist_size(state.enemies); ++j) {
-				entity_t* enemy = alist_get(state.enemies, j);
+			// rendering enemies
+			for (i = 0; i < alist_size(state.enemies); ++i) {
+				entity_t* enemy = alist_get(state.enemies, i);
 				if (x + xoff == enemy->x && y + yoff == enemy->y) {
 					load_sprite(SPR_ENEMY1, (spr_rect*) &src);
+					SDL_SetTextureColorMod(tex, light, light * 0.8 * (enemy->hp / E_DEF_HP),
+										   light * 0.5 * (enemy->hp / E_DEF_HP));
 					SDL_RenderCopy(renderer, tex, &src, &dest);
+					SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
 					if (lvlxy(0, 1) == B_WALL &&
 						(lvlxy(0, 0) == B_FLOOR ||
 						 lvlxy(0, 0) == B_PATH)) {
@@ -465,9 +394,10 @@ void Render(SDL_Texture* tex) {
 				}
 			}
 
-			// render entities
-			for (uint j = 0; j < alist_size(state.entities); ++j) {
-				entity_t* e = alist_get(state.entities, j);
+			// rendering entities
+			for (i = 0; i < alist_size(state.entities); ++i) {
+				entity_t* e = alist_get(state.entities, i);
+				assert(e != NULL);
 				switch (e->type) {
 					case E_NONE:
 						break;
@@ -479,15 +409,17 @@ void Render(SDL_Texture* tex) {
 						break;
 					case E_PEW:
 						if (x + xoff == e->x && y + yoff == e->y) {
-							load_sprite(SPR_COIN, (spr_rect*) &src);
+							load_sprite(SPR_FBOY, (spr_rect*) &src);
+							dest.y -= 10;
 							SDL_RenderCopy(renderer, tex, &src, &dest);
+							dest.y += 10;
 						}
 						break;
 				}
 
 			}
 
-			// render players
+			// rendering player
 			if (x + xoff == state.player.x && y + yoff == state.player.y) {
 				load_sprite(SPR_PLAYER, (spr_rect*) &src);
 				SDL_SetTextureColorMod(tex, 255, 255, 255);
@@ -546,69 +478,21 @@ float calc_light(entity_t* source, int x, int y, float current_light) {
 	return fmaxf(rel_light, current_light);
 }
 
-void restart_level() {
-	free(state.level.maze);
-	state.level = generate_maze(&state.level.exit_x, &state.level.exit_y);
-	free(state.doodads);
-	state.doodads = generate_doodads(state.level.maze);
-	get_lights(state.doodads, state.lights);
-	spawn_enemies(state.level.maze, state.enemies);
-	while (!queue_isempty(state.event_queue)) { queue_dequeue(state.event_queue); }
-	state.level_count = 0;
-	state.score = 0;
-	state.player.x = 1;
-	state.player.y = 1;
-}
-
-void get_lights(char const* dd, alist_t* list) {
-	alist_clear(list);
-	entity_t source;
-	for (int y = 0; y < LVL_H; ++y) {
-		for (int x = 0; x < LVL_W; ++x) {
-			if (dd[y * LVL_W + x] == D_TORCH) {
-				source.x = x;
-				source.y = y;
-				source.light.intensity = 1.0f;
-				source.type = E_LIGHT;
-				alist_add(list, &source);
-			}
-		}
-	}
-}
-
-void spawn_enemies(char const* lvl, alist_t* list) {
-	assert(lvl != NULL);
-	alist_clear(list);
-	#define ENEMY_COUNT 20
-	entity_t enemy;
-	int i, dx, dy;
-	for (i = 0; i < ENEMY_COUNT; ++i) {
-		while (lvl[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_FLOOR);
-		enemy = enemy_new(0, 0);
-		enemy.x = dx;
-		enemy.y = dy;
-		enemy_search(&enemy, &state.player, state.level.maze, state.level.w, state.level.h, state.level.b_wall, 1);
-		alist_add(list, &enemy);
-	}
-}
-
 void init_game() {
 	state.entities = alist_new(sizeof(entity_t));
 	state.enemies = alist_new(sizeof(entity_t));
-	state.lights = alist_new(sizeof(entity_t));
+	state.light_emitters = alist_new(sizeof(entity_t));
 	state.event_queue = queue_new(sizeof(event_t));
 
-	state.player = player_new(1, 1);
-
-	state.level_count = 0;
-	state.score = 0;
-	state.level = generate_maze(&state.level.exit_x, &state.level.exit_y);
-	state.doodads = generate_doodads(state.level.maze);
-	get_lights(state.doodads, state.lights);
-	spawn_enemies(state.level.maze, state.enemies);
+	state.level.doodads = NULL;
+	state.level.maze = NULL;
 
 	state.l_sw = 0;
 	state.l_type[0] = L_LOS;
 	state.l_type[1] = L_NOLOS;
 	state.l_type[2] = L_DISABLED;
+
+	state.player = player_new(1, 1);
+
+	event_dispatch(&state, ev_game_restart);
 }

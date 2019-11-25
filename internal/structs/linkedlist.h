@@ -19,7 +19,7 @@ typedef struct node {
 } node_t;
 
 typedef struct llist_t {
-	uint size;
+	int size;
 	node_t* head;
 	node_t* tail;
 
@@ -43,7 +43,7 @@ static void llist_destroy(llist_t* list) {
 }
 
 
-static llist_t* llist_new(uint size) {
+static llist_t* llist_new(int size) {
 	llist_t* list = (llist_t*) calloc(1, sizeof(llist_t));
 	list->size = size;
 	list->head = NULL;
@@ -58,7 +58,7 @@ static void llist_set_cmp(llist_t* list, int(* cmpfunc)(const void*, const void*
 }
 
 
-static node_t* _newnode(void* data, uint size) {
+static node_t* _newnode(void* data, int size) {
 	node_t* newnode = (node_t*) calloc(1, sizeof(node_t));
 	newnode->data = calloc(1, size);
 	memcpy(newnode->data, data, size);
@@ -110,8 +110,8 @@ static void llist_add_back(llist_t* list, void* data) {
 }
 
 
-static void llist_add_at(llist_t* list, void* data, uint index) {
-	uint _index = 0;
+static void llist_add_at(llist_t* list, void* data, int index) {
+	int _index = 0;
 	node_t* current = list->head;
 	if (index == 0) {
 		llist_add_front(list, data);
@@ -149,8 +149,8 @@ static llist_t* llist_copy(llist_t* list) {
 	return newlist;
 }
 
-static void* llist_get(llist_t* list, uint index) {
-	uint _index = 0;
+static void* llist_get(llist_t* list, int index) {
+	int _index = 0;
 	node_t* current = list->head;
 	while (current != NULL && _index <= index) {
 		if (_index == index) {
@@ -162,8 +162,8 @@ static void* llist_get(llist_t* list, uint index) {
 	return NULL;
 }
 
-static node_t* llist_get_node(llist_t* list, uint index) {
-	uint _index = 0;
+static node_t* llist_get_node(llist_t* list, int index) {
+	int _index = 0;
 	node_t* current = list->head;
 	while (current != NULL && _index <= index) {
 		if (_index == index) {
@@ -175,8 +175,8 @@ static node_t* llist_get_node(llist_t* list, uint index) {
 	return NULL;
 }
 
-static void* llist_getr(llist_t* list, uint index) {
-	uint _index = 0;
+static void* llist_getr(llist_t* list, int index) {
+	int _index = 0;
 	node_t* current = list->tail;
 	while (current != NULL && _index <= index) {
 		if (_index == index) {
@@ -206,8 +206,8 @@ static void* llist_get_first(llist_t* list) {
 }
 
 
-static uint32_t llist_idxof(llist_t* list, void* data) {
-	uint32_t _index = 0;
+static int llist_idxof(llist_t* list, void* data) {
+	int _index = 0;
 	node_t* current = list->head;
 	while (current != NULL) {
 		if (list->cmpfunc(current->data, data, list->size) == 0) {
@@ -219,8 +219,8 @@ static uint32_t llist_idxof(llist_t* list, void* data) {
 	return -1;
 }
 
-static uint32_t llist_idxof_cmp(llist_t* list, void* data, int(* cmpfunc)(const void*, const void*, unsigned long)) {
-	uint32_t _index = 0;
+static int llist_idxof_cmp(llist_t* list, void* data, int(* cmpfunc)(const void*, const void*, unsigned long)) {
+	int _index = 0;
 	node_t* current = list->head;
 	while (current != NULL) {
 		if (cmpfunc(current->data, data, list->size) == 0) {
@@ -233,8 +233,8 @@ static uint32_t llist_idxof_cmp(llist_t* list, void* data, int(* cmpfunc)(const 
 }
 
 
-static void llist_rm_idx(llist_t* list, uint index) {
-	uint _index = 0;
+static void llist_rm_idx(llist_t* list, int index) {
+	int _index = 0;
 	node_t* current = list->head;
 	while (current != NULL && _index <= index) {
 		if (_index == index) {
@@ -247,7 +247,7 @@ static void llist_rm_idx(llist_t* list, uint index) {
 }
 
 static void llist_rm(llist_t* list, void* elem) {
-	uint _index = 0;
+	int _index = 0;
 	node_t* current = list->head;
 	while (current != NULL) {
 		if (list->cmpfunc(current->data, elem, list->size) == 0) {
@@ -271,8 +271,8 @@ static void llist_rm_back(llist_t* list) {
 	}
 }
 
-static void llist_set(llist_t* list, void* data, uint index) {
-	uint _index = 0;
+static void llist_set(llist_t* list, void* data, int index) {
+	int _index = 0;
 	node_t* current = list->head;
 	while (current != NULL && _index <= index) {
 		if (_index == index) {
@@ -283,8 +283,8 @@ static void llist_set(llist_t* list, void* data, uint index) {
 	}
 }
 
-static uint llist_size(llist_t* list) {
-	uint len = 0;
+static int llist_size(llist_t* list) {
+	int len = 0;
 	node_t* current = list->head;
 	while (current != NULL) {
 		len++;

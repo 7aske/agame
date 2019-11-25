@@ -5,7 +5,9 @@
 #ifndef AGAME_PEW_H
 #define AGAME_PEW_H
 
-#include "entity.h"
+#pragma once
+
+#include "entity/entity.h"
 
 extern int pew_move(entity_t* e, char const* lvl, int width, int bound);
 

@@ -42,7 +42,7 @@ extern void draw_text(SDL_Renderer* renderer, TTF_Font* font, char const* text, 
 extern void draw_help(SDL_Renderer* renderer, TTF_Font* font) {
 
 	static const char
-			* const line1 = "O - solve maze",
+			* const line1 = "O - maze_solve maze",
 			* const line2 = "L - toggle light",
 			* const line3 = "R - generate new maze",
 			* const line4 = "Q - quit game",

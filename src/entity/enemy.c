@@ -9,10 +9,10 @@ entity_t enemy_new(int x, int y) {
 	newenemy.x = x;
 	newenemy.y = y;
 	newenemy.type = E_ENEMY;
-	newenemy.enemy.next_move = DEFAULT_NEXT_MOVE;
-	newenemy.enemy.next_search = DEFAULT_NEXT_SEARCH;
+	newenemy.enemy.next_move = E_DEF_NEXT_MOVE;
+	newenemy.enemy.next_search = E_DEF_NEXT_SEARCH;
 	newenemy.enemy.path = NULL;
-	newenemy.hp = DEFAULT_HP;
+	newenemy.hp = E_DEF_HP;
 	return newenemy;
 }
 
@@ -24,7 +24,7 @@ void enemy_randmove(entity_t* e, char const* lvl, int width, int bound) {
 		e->enemy.next_move -= (rand() % 3) + 1;
 		return;
 	} else {
-		e->enemy.next_move = DEFAULT_NEXT_MOVE;
+		e->enemy.next_move = E_DEF_NEXT_MOVE;
 	}
 	while (!entity_move(e, lvl, width, bound, RAND_DIR));
 }
@@ -36,7 +36,7 @@ enemy_search(entity_t* e, entity_t* tar, char const* level, int width, int heigh
 			e->enemy.next_search -= (rand() % 3) + 1;
 			return;
 		} else {
-			e->enemy.next_search = DEFAULT_NEXT_SEARCH;
+			e->enemy.next_search = E_DEF_NEXT_SEARCH;
 		}
 	}
 	if (e->enemy.path != NULL) {
@@ -50,13 +50,15 @@ enemy_search(entity_t* e, entity_t* tar, char const* level, int width, int heigh
 void enemy_fpath(entity_t* e, char const* lvl, int width, int bound) {
 	assert(e != (void*) 0);
 	assert(e->type == E_ENEMY);
-	assert(e->enemy.path != (void*) 0);
+	if (e->enemy.path == NULL) {
+		enemy_randmove(e, lvl, width, bound);
+	}
 
 	if (e->enemy.next_move > 0) {
 		e->enemy.next_move -= (rand() % 3) + 1;
 		return;
 	} else {
-		e->enemy.next_move = DEFAULT_NEXT_MOVE;
+		e->enemy.next_move = E_DEF_NEXT_MOVE;
 	}
 
 
@@ -101,7 +103,7 @@ void enemy_lockmove(entity_t* e, entity_t* e1, char const* lvl, int width, int b
 		e->enemy.next_move -= (rand() % 3) + 1;
 		return;
 	} else {
-		e->enemy.next_move = DEFAULT_NEXT_MOVE;
+		e->enemy.next_move = E_DEF_NEXT_MOVE;
 	}
 
 	if (abs(dx) >= abs(dy)) {

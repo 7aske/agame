@@ -5,9 +5,12 @@
 #ifndef AGAME_UTIL_H
 #define AGAME_UTIL_H
 
+#pragma once
+
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
+
 #include "structs/astack.h"
 #include "structs/queue.h"
 #include "cleanup_functions.h"

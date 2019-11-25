@@ -18,8 +18,8 @@
 #define STACK_CAP 16
 
 typedef struct astack {
-	uint size;
-	uint cap;
+	int size;
+	int cap;
 	void* top;
 	void* data;
 } astack_t;
@@ -36,7 +36,7 @@ static void stack_destroy(astack_t* stack) {
 	free(stack);
 }
 
-static astack_t* stack_new(uint size) {
+static astack_t* stack_new(int size) {
 	astack_t* newstack = (astack_t*) calloc(1, sizeof(astack_t));
 	newstack->size = size;
 	newstack->cap = STACK_CAP;
@@ -53,7 +53,7 @@ static astack_t* stack_copy(astack_t* stack) {
 	newstack->top = newstack->data + (stack->top - stack->data);
 }
 
-static int32_t stack_size(astack_t* stack) {
+static int stack_size(astack_t* stack) {
 	return (stack->top - stack->data) / stack->size;
 }
 

@@ -11,7 +11,7 @@ for (int lvlx = 0; lvlx < LVL_W; ++lvlx) putc(lvl[lvly * LVL_W + lvlx], stdout);
 putc('\n', stdout);}
 #endif
 
-int is_safe(char const* maze, int x, int y) {
+int _is_safe(char const* maze, int x, int y) {
 	assert(maze != NULL);
 	if (x >= 1 && x < LVL_W - 1 && y >= 1 && y < LVL_H - 1 && maze[y * LVL_W + x] == B_FLOOR)
 		return 1;
@@ -22,11 +22,12 @@ int is_safe(char const* maze, int x, int y) {
 int _solve(char* maze, int x, int y, char* sol, int exit_x, int exit_y) {
 	assert(maze != NULL);
 	assert(sol != NULL);
+
 	if (x == exit_x && y == exit_y) {
 		sol[y * LVL_W + x] = B_PATH;
 		return 1;
 	}
-	if (is_safe(sol, x, y)) {
+	if (_is_safe(sol, x, y)) {
 		sol[y * LVL_W + x] = B_PATH;
 		if (_solve(maze, x + 1, y, sol, exit_x, exit_y)) {
 			return 1;
@@ -46,7 +47,7 @@ int _solve(char* maze, int x, int y, char* sol, int exit_x, int exit_y) {
 	return 0;
 }
 
-void solve(char* maze, int exit_x, int exit_y) {
+void maze_solve(char* maze, int exit_x, int exit_y) {
 	assert(maze != NULL);
 	assert(exit_x > 0);
 	assert(exit_y > 0);
@@ -63,7 +64,7 @@ void overlay_solution(char* maze, int exit_x, int exit_y) {
 	assert(exit_x > 0);
 	assert(exit_y > 0);
 
-	solve(maze, exit_x, exit_y);
+	maze_solve(maze, exit_x, exit_y);
 	for (int y = 0; y < LVL_H; ++y) {
 		for (int x = 0; x < LVL_W; ++x) {
 			if (solution[y * LVL_W + x] == B_PATH) {
@@ -75,7 +76,7 @@ void overlay_solution(char* maze, int exit_x, int exit_y) {
 	}
 }
 
-void carve_maze(char* maze, int width, int height, int x, int y) {
+void maze_carve(char* maze, int width, int height, int x, int y) {
 	int x1, y1;
 	int x2, y2;
 	int dx, dy;
@@ -122,29 +123,33 @@ void carve_maze(char* maze, int width, int height, int x, int y) {
 
 }
 
-
-maze_t generate_maze() {
+void maze_new(maze_t* maze) {
+	assert(maze != (void*) 0);
 	int x, y;
-	maze_t newmaze;
-	char* lvl = (char*) malloc(LVL_H * LVL_W);
-	memset(lvl, B_WALL, LVL_H * LVL_W);
+	maze->maze = generate_maze();
+	maze->doodads = generate_doodads(maze->maze);
+	maze->maze[1 * LVL_W + 1] = B_FLOOR;
+	while (maze->maze[(y = (rand() % (LVL_H - SCR_H)) + SCR_H) * LVL_W + (x = (rand() % (LVL_W - SCR_W)) + SCR_W)] ==
+		   B_WALL);
+	maze->exit_x = x;
+	maze->exit_y = y;
+	maze->maze[maze->exit_y * LVL_W + maze->exit_x] = B_EXIT;
+	maze->h = LVL_H;
+	maze->w = LVL_W;
+	maze->b_wall = B_WALL;
+}
+
+char* generate_maze() {
+	int x, y;
+	char* maze = (char*) malloc(LVL_H * LVL_W);
+	memset(maze, B_WALL, LVL_H * LVL_W);
 	srand(time(NULL));
 	for (y = 1; y < LVL_H; y += 2) {
 		for (x = 1; x < LVL_W; x += 2) {
-			carve_maze(lvl, LVL_W, LVL_H, x, y);
+			maze_carve(maze, LVL_W, LVL_H, x, y);
 		}
 	}
-
-	lvl[1 * LVL_W + 1] = B_FLOOR;
-	while (lvl[(y = (rand() % (LVL_H - SCR_H)) + SCR_H) * LVL_W + (x = (rand() % (LVL_W - SCR_W)) + SCR_W)] == B_WALL);
-	newmaze.exit_x = x;
-	newmaze.exit_y = y;
-	lvl[newmaze.exit_y * LVL_W + newmaze.exit_x] = B_EXIT;
-	newmaze.maze = lvl;
-	newmaze.h = LVL_H;
-	newmaze.w = LVL_W;
-	newmaze.b_wall = B_WALL;
-	return newmaze;
+	return maze;
 }
 
 char* generate_doodads(char const* maze) {
@@ -193,4 +198,13 @@ void maze_test_macros() {
 	printf("B_FLOOR  = %3d\n", B_FLOOR);
 	printf("B_PATH   = %3d\n", B_PATH);
 	printf("B_EXIT   = %3d\n", B_EXIT);
+}
+
+void maze_clear(maze_t* maze) {
+	if (maze->maze != NULL) {
+		free(maze->maze);
+	}
+	if (maze->doodads != NULL) {
+		free(maze->doodads);
+	}
 }

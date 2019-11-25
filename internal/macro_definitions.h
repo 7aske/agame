@@ -6,7 +6,7 @@
 #define AGAME_MACRO_DEFINITIONS_H
 
 #define TARGET_FPS 60
-
+#define WINDOW_TITLE "A Game"
 // screen size
 #define WIDTH (1024)
 #define HEIGHT (768)
@@ -23,24 +23,6 @@
 #define LVL_W (WRLD_W * SCR_W)
 #define LVL_H (WRLD_H * SCR_H)
 
-enum blocks_e {
-	B_NONE,
-	B_PATH,
-	B_WALL,
-	B_FLOOR,
-	B_EXIT
-};
-
-enum doodads_e {
-	D_NONE,
-	D_SKULL,
-	D_PIPE1,
-	D_PIPE2,
-	D_OOZE,
-	D_GRATE,
-	D_BRICK,
-	D_TORCH
-};
 
 
 #endif //AGAME_MACRO_DEFINITIONS_H
