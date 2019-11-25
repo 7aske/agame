@@ -84,7 +84,7 @@ static uint32_t render_flags = SDL_RENDERER_ACCELERATED;
 static TTF_Font* font;
 
 
-void inc_score(){
+void inc_score() {
 	state.score++;
 }
 
@@ -350,7 +350,7 @@ void Render(SDL_Texture* tex) {
 			light = 0;
 			for (uint i = 0; i < alist_size(state.lights); ++i) {
 				entity_t* source = alist_get(state.lights, i);
-				if (dist_to(x, y, source->x, source->y) < 10) {
+				if (dist_to(x + xoff, y + yoff, source->x, source->y) < 10) {
 					light = calc_light(source, x + xoff, y + yoff, light);
 				}
 			}
@@ -553,6 +553,9 @@ void restart_level() {
 	state.doodads = generate_doodads(state.level.maze);
 	get_lights(state.doodads, state.lights);
 	spawn_enemies(state.level.maze, state.enemies);
+	while (!queue_isempty(state.event_queue)) { queue_dequeue(state.event_queue); }
+	state.level_count = 0;
+	state.score = 0;
 	state.player.x = 1;
 	state.player.y = 1;
 }
