@@ -9,7 +9,7 @@ entity_t enemy_new(int x, int y) {
 	newenemy.x = x;
 	newenemy.y = y;
 	newenemy.type = E_ENEMY;
-	newenemy.enemy.next_move = E_DEF_NEXT_MOVE;
+	newenemy.next_move = E_DEF_NEXT_MOVE;
 	newenemy.enemy.next_search = E_DEF_NEXT_SEARCH;
 	newenemy.enemy.path = NULL;
 	newenemy.hp = E_DEF_HP;
@@ -20,11 +20,11 @@ entity_t enemy_new(int x, int y) {
 void enemy_randmove(entity_t* e, char const* lvl, int width, int bound) {
 	assert(e != (void*) 0);
 	assert(e->type == E_ENEMY);
-	if (e->enemy.next_move > 0) {
-		e->enemy.next_move -= (rand() % 3) + 1;
+	if (e->next_move > 0) {
+		e->next_move -= (rand() % 3) + 1;
 		return;
 	} else {
-		e->enemy.next_move = E_DEF_NEXT_MOVE;
+		e->next_move = E_DEF_NEXT_MOVE;
 	}
 	while (!entity_move(e, lvl, width, bound, RAND_DIR));
 }
@@ -54,11 +54,11 @@ void enemy_fpath(entity_t* e, char const* lvl, int width, int bound) {
 		enemy_randmove(e, lvl, width, bound);
 	}
 
-	if (e->enemy.next_move > 0) {
-		e->enemy.next_move -= (rand() % 3) + 1;
+	if (e->next_move > 0) {
+		e->next_move -= (rand() % 3) + 1;
 		return;
 	} else {
-		e->enemy.next_move = E_DEF_NEXT_MOVE;
+		e->next_move = E_DEF_NEXT_MOVE;
 	}
 
 
@@ -99,11 +99,11 @@ void enemy_lockmove(entity_t* e, entity_t* e1, char const* lvl, int width, int b
 	enum dir dir;
 	dx = e->x - e1->x;
 	dy = e->y - e1->y;
-	if (e->enemy.next_move > 0) {
-		e->enemy.next_move -= (rand() % 3) + 1;
+	if (e->next_move > 0) {
+		e->next_move -= (rand() % 3) + 1;
 		return;
 	} else {
-		e->enemy.next_move = E_DEF_NEXT_MOVE;
+		e->next_move = E_DEF_NEXT_MOVE;
 	}
 
 	if (abs(dx) >= abs(dy)) {

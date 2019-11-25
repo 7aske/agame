@@ -27,7 +27,7 @@ entity_t player_new(int x, int y) {
 	newplayer.y = y;
 	newplayer.hp = E_DEF_HP;
 	newplayer.player.dmg = E_DEF_DMG;
-	newplayer.player.next_move = E_DEF_PNEXT_MOVE;
+	newplayer.next_move = E_DEF_PNEXT_MOVE;
 	newplayer.player.next_shot = E_DEF_PNEXT_SHOT;
 	newplayer.player.dir = DIR_DOWN;
 	newplayer.type = E_PLAYER;
@@ -41,33 +41,33 @@ void player_move(entity_t* e, SDL_Scancode code, maze_t* level) {
 		case SDL_SCANCODE_W:
 		case SDL_SCANCODE_UP:
 			e->player.dir = DIR_UP;
-			if (level->maze[((e->y - 1) * level->w) + e->x] != level->b_wall && e->player.next_move == 0) {
+			if (level->maze[((e->y - 1) * level->w) + e->x] != level->b_wall && e->next_move == 0) {
 				e->y -= 1;
-				e->player.next_move = E_DEF_PNEXT_MOVE;
+				e->next_move = E_DEF_PNEXT_MOVE;
 			}
 			break;
 		case SDL_SCANCODE_A:
 		case SDL_SCANCODE_LEFT:
 			e->player.dir = DIR_LEFT;
-			if (level->maze[(e->y * level->w) + e->x - 1] != level->b_wall && e->player.next_move == 0) {
+			if (level->maze[(e->y * level->w) + e->x - 1] != level->b_wall && e->next_move == 0) {
 				e->x -= 1;
-				e->player.next_move = E_DEF_PNEXT_MOVE;
+				e->next_move = E_DEF_PNEXT_MOVE;
 			}
 			break;
 		case SDL_SCANCODE_S:
 		case SDL_SCANCODE_DOWN:
 			e->player.dir = DIR_DOWN;
-			if (level->maze[((e->y + 1) * level->w) + e->x] != level->b_wall && e->player.next_move == 0) {
+			if (level->maze[((e->y + 1) * level->w) + e->x] != level->b_wall && e->next_move == 0) {
 				e->y += 1;
-				e->player.next_move = E_DEF_PNEXT_MOVE;
+				e->next_move = E_DEF_PNEXT_MOVE;
 			}
 			break;
 		case SDL_SCANCODE_D:
 		case SDL_SCANCODE_RIGHT:
 			e->player.dir = DIR_RIGHT;
-			if (level->maze[(e->y * level->w) + e->x + 1] != level->b_wall && e->player.next_move == 0) {
+			if (level->maze[(e->y * level->w) + e->x + 1] != level->b_wall && e->next_move == 0) {
 				e->x += 1;
-				e->player.next_move = E_DEF_PNEXT_MOVE;
+				e->next_move = E_DEF_PNEXT_MOVE;
 			}
 			break;
 		default:

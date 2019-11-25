@@ -39,7 +39,6 @@ enum entities {
 
 typedef struct player {
 	enum dir dir;
-	int next_move;
 	int next_shot;
 	int dmg;
 } player_t;
@@ -49,7 +48,6 @@ typedef struct light {
 } light_t;
 
 typedef struct enemy {
-	int next_move;
 	int next_search;
 	astack_t* path;
 } enemy_t;
@@ -65,6 +63,7 @@ typedef struct entity {
 	int x;
 	int y;
 	float hp;
+	int next_move;
 	union {
 		player_t player;
 		enemy_t enemy;

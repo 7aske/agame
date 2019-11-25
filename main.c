@@ -237,8 +237,8 @@ void Update(double delta_time) {
 		}
 	}
 	// processing player
-	if (state.player.player.next_move > 0) {
-		state.player.player.next_move--;
+	if (state.player.next_move > 0) {
+		state.player.next_move--;
 	}
 	if (state.player.player.next_shot > 0) {
 		state.player.player.next_shot--;
