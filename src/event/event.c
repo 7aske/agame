@@ -17,7 +17,7 @@ void ev_level_restart(state_t* state, ...) {
 	entity_t source;
 	for (int y = 0; y < state->level.h; ++y) {
 		for (int x = 0; x < state->level.w; ++x) {
-			if (state->level.maze[y * state->level.w + x] == D_TORCH) {
+			if (state->level.doodads[y * state->level.w + x] == D_TORCH) {
 				printf("%d %d\n", x, y);
 				source.x = x;
 				source.y = y;

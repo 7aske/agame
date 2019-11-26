@@ -6,11 +6,11 @@
 #include <SDL2/SDL_image.h>
 #include <signal.h>
 #include <assert.h>
-#include <state.h>
 
 #include "macro_definitions.h"
 #include "draw_misc.h"
 
+#include "state.h"
 #include "entity/player.h"
 #include "entity/pew.h"
 #include "event/event.h"
