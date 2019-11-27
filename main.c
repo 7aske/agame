@@ -244,7 +244,6 @@ void Update(double delta_time) {
 		state.player.player.next_shot--;
 	}
 	if (state.player.x == state.level.exit_x && state.player.y == state.level.exit_y) {
-		state.level_count++;
 		event_dispatch(&state, ev_level_next);
 	}
 }
