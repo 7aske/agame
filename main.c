@@ -179,6 +179,15 @@ void event_handler(SDL_Event* ev) {
 				case SDL_SCANCODE_Q:
 					quit();
 					break;
+				case SDL_SCANCODE_1:
+					state.ren_mode = REN_BLOCKS;
+					break;
+				case SDL_SCANCODE_2:
+					state.ren_mode = REN_ENTIIES;
+					break;
+				case SDL_SCANCODE_3:
+					state.ren_mode = REN_SOLUTION;
+					break;
 			}
 			break;
 	}
@@ -255,7 +264,7 @@ void Render() {
 	assert(state.level.doodads != NULL);
 	assert(state.level.maze != NULL);
 
-	float light;
+	float light = 255;
 	char text_buf[128];
 	int xoff = (int) (state.player.x / SCR_W) * SCR_W;
 	int yoff = (int) (state.player.y / SCR_H) * SCR_H;
@@ -269,153 +278,159 @@ void Render() {
 			dest.x = BSIZE * x;
 			dest.y = BSIZE * y;
 
-			// rendering lights
-			light = 0;
-			for (i = 0; i < alist_size(state.light_emitters); ++i) {
-				entity_t* source = alist_get(state.light_emitters, i);
-				if (dist_to(x + xoff, y + yoff, source->x, source->y) < 10) {
-					light = calc_light(source, x + xoff, y + yoff, light);
-				}
-			}
-
-			light = calc_light(&state.player, x + xoff, y + yoff, light);
 
 			SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
 
-			// rendering background
-			switch (lvlxy(0, 0)) {
-				case B_WALL:
-					load_sprite(SPR_WALL, (spr_rect*) &src);
-					break;
-				case B_EXIT:
-					load_sprite(SPR_DLADDER, (spr_rect*) &src);
-					if (lvlxy(0, 1) == B_WALL) {
-						SDL_RenderCopy(renderer, tex, &src, &dest);
-						load_sprite(SPR_TWALL, (spr_rect*) &src);
+			if (state.ren_mode == REN_BLOCKS) {
+				// rendering lights
+				light = 0;
+				for (i = 0; i < alist_size(state.light_emitters); ++i) {
+					entity_t* source = alist_get(state.light_emitters, i);
+					if (dist_to(x + xoff, y + yoff, source->x, source->y) < 10) {
+						light = calc_light(source, x + xoff, y + yoff, light);
 					}
-					break;
-				case B_FLOOR:
-					if (lvlxy(0, -1) == B_WALL) {
-						load_sprite(SPR_TFLOOR, (spr_rect*) &src);
-					} else {
-						load_sprite(SPR_FLOOR, (spr_rect*) &src);
-					}
-					if (lvlxy(0, 1) == B_WALL) {
-						SDL_RenderCopy(renderer, tex, &src, &dest);
-						load_sprite(SPR_TWALL, (spr_rect*) &src);
-					}
-					break;
-				case B_PATH:
-					if (lvlxy(0, -1) == B_WALL) {
-						load_sprite(SPR_TFLOOR, (spr_rect*) &src);
-					} else {
-						load_sprite(SPR_FLOOR, (spr_rect*) &src);
-					}
-					if (lvlxy(0, 1) == B_WALL) {
-						SDL_RenderCopy(renderer, tex, &src, &dest);
-						load_sprite(SPR_TWALL, (spr_rect*) &src);
-					}
-					SDL_RenderCopy(renderer, tex, &src, &dest);
-					load_sprite(SPR_COIN, (spr_rect*) &src);
-					break;
+				}
 
-			}
-			SDL_RenderCopy(renderer, tex, &src, &dest);
-
-			// rendering doodads
-			switch (state.level.doodads[((y + yoff) * LVL_W) + (x + xoff)]) {
-				case D_BRICK:
-					load_sprite(SPR_MBRICK, (spr_rect*) &src);
-					break;
-				case D_GRATE:
-					if (lvlxy(0, 1) != B_WALL) {
-						dest.y += BSIZE;
-						load_sprite(SPR_OOZEF, (spr_rect*) &src);
-						SDL_RenderCopy(renderer, tex, &src, &dest);
-						dest.y -= BSIZE;
-						load_sprite(SPR_GRATE, (spr_rect*) &src);
-					}
-					break;
-				case D_OOZE:
-					if (lvlxy(0, -1) == B_WALL) {
-						load_sprite(SPR_OOZE, (spr_rect*) &src);
-						dest.y -= BSIZE;
-						SDL_RenderCopy(renderer, tex, &src, &dest);
-						load_sprite(SPR_OOZEF, (spr_rect*) &src);
-						dest.y += BSIZE;
-						if (lvlxy(0, 0) == B_PATH) {
-							SDL_RenderCopy(renderer, tex, &src, &dest);
-							load_sprite(SPR_COIN, (spr_rect*) &src);
-						}
-						if ((lvlxy(0, 0) == B_FLOOR || lvlxy(0, 0) == B_PATH) &&
-							lvlxy(0, 1) == B_WALL) {
+				light = calc_light(&state.player, x + xoff, y + yoff, light);
+				// rendering background
+				switch (lvlxy(0, 0)) {
+					case B_WALL:
+						load_sprite(SPR_WALL, (spr_rect*) &src);
+						break;
+					case B_EXIT:
+						load_sprite(SPR_DLADDER, (spr_rect*) &src);
+						if (lvlxy(0, 1) == B_WALL) {
 							SDL_RenderCopy(renderer, tex, &src, &dest);
 							load_sprite(SPR_TWALL, (spr_rect*) &src);
 						}
-					}
-					break;
-				case D_SKULL:
-					SDL_RenderCopy(renderer, tex, &src, &dest);
-					load_sprite(SPR_SKULL, (spr_rect*) &src);
-					if (lvlxy(0, 1) == B_WALL) {
-						SDL_RenderCopy(renderer, tex, &src, &dest);
-						load_sprite(SPR_TWALL, (spr_rect*) &src);
-					}
-					break;
-				case D_PIPE1:
-					load_sprite(SPR_PIPE, (spr_rect*) &src);
-					break;
-				case D_PIPE2:
-					load_sprite(SPR_PIPE2, (spr_rect*) &src);
-					break;
-				case D_TORCH:
-					load_sprite(SPR_TORCH, (spr_rect*) &src);
-					break;
-			}
-			SDL_RenderCopy(renderer, tex, &src, &dest);
-
-			// rendering enemies
-			for (i = 0; i < alist_size(state.enemies); ++i) {
-				entity_t* enemy = alist_get(state.enemies, i);
-				if (x + xoff == enemy->x && y + yoff == enemy->y) {
-					load_sprite(SPR_ENEMY1, (spr_rect*) &src);
-					SDL_SetTextureColorMod(tex, light, light * 0.8 * (enemy->hp / E_DEF_HP),
-										   light * 0.5 * (enemy->hp / E_DEF_HP));
-					SDL_RenderCopy(renderer, tex, &src, &dest);
-					SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
-					if (lvlxy(0, 1) == B_WALL &&
-						(lvlxy(0, 0) == B_FLOOR ||
-						 lvlxy(0, 0) == B_PATH)) {
-						load_sprite(SPR_TWALL, (spr_rect*) &src);
-						SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
-						SDL_RenderCopy(renderer, tex, &src, &dest);
-					}
-				}
-			}
-
-			// rendering entities
-			for (i = 0; i < alist_size(state.entities); ++i) {
-				entity_t* e = alist_get(state.entities, i);
-				assert(e != NULL);
-				switch (e->type) {
-					case E_NONE:
 						break;
-					case E_PLAYER:
-						break;
-					case E_LIGHT:
-						break;
-					case E_ENEMY:
-						break;
-					case E_PEW:
-						if (x + xoff == e->x && y + yoff == e->y) {
-							load_sprite(SPR_FBOY, (spr_rect*) &src);
-							dest.y -= 10;
+					case B_FLOOR:
+						if (lvlxy(0, -1) == B_WALL) {
+							load_sprite(SPR_TFLOOR, (spr_rect*) &src);
+						} else {
+							load_sprite(SPR_FLOOR, (spr_rect*) &src);
+						}
+						if (lvlxy(0, 1) == B_WALL) {
 							SDL_RenderCopy(renderer, tex, &src, &dest);
-							dest.y += 10;
+							load_sprite(SPR_TWALL, (spr_rect*) &src);
 						}
 						break;
+					case B_PATH:
+						if (lvlxy(0, -1) == B_WALL) {
+							load_sprite(SPR_TFLOOR, (spr_rect*) &src);
+						} else {
+							load_sprite(SPR_FLOOR, (spr_rect*) &src);
+						}
+						if (lvlxy(0, 1) == B_WALL) {
+							SDL_RenderCopy(renderer, tex, &src, &dest);
+							load_sprite(SPR_TWALL, (spr_rect*) &src);
+						}
+						break;
+
+				}
+				SDL_RenderCopy(renderer, tex, &src, &dest);
+
+				// rendering doodads
+				switch (state.level.doodads[((y + yoff) * LVL_W) + (x + xoff)]) {
+					case D_BRICK:
+						load_sprite(SPR_MBRICK, (spr_rect*) &src);
+						break;
+					case D_GRATE:
+						if (lvlxy(0, 1) != B_WALL) {
+							dest.y += BSIZE;
+							load_sprite(SPR_OOZEF, (spr_rect*) &src);
+							SDL_RenderCopy(renderer, tex, &src, &dest);
+							dest.y -= BSIZE;
+							load_sprite(SPR_GRATE, (spr_rect*) &src);
+						}
+						break;
+					case D_OOZE:
+						if (lvlxy(0, -1) == B_WALL) {
+							load_sprite(SPR_OOZE, (spr_rect*) &src);
+							dest.y -= BSIZE;
+							SDL_RenderCopy(renderer, tex, &src, &dest);
+							load_sprite(SPR_OOZEF, (spr_rect*) &src);
+							dest.y += BSIZE;
+							if (lvlxy(0, 0) == B_PATH) {
+								SDL_RenderCopy(renderer, tex, &src, &dest);
+								load_sprite(SPR_COIN, (spr_rect*) &src);
+							}
+							if ((lvlxy(0, 0) == B_FLOOR || lvlxy(0, 0) == B_PATH) &&
+								lvlxy(0, 1) == B_WALL) {
+								SDL_RenderCopy(renderer, tex, &src, &dest);
+								load_sprite(SPR_TWALL, (spr_rect*) &src);
+							}
+						}
+						break;
+					case D_SKULL:
+						SDL_RenderCopy(renderer, tex, &src, &dest);
+						load_sprite(SPR_SKULL, (spr_rect*) &src);
+						if (lvlxy(0, 1) == B_WALL) {
+							SDL_RenderCopy(renderer, tex, &src, &dest);
+							load_sprite(SPR_TWALL, (spr_rect*) &src);
+						}
+						break;
+					case D_PIPE1:
+						load_sprite(SPR_PIPE, (spr_rect*) &src);
+						break;
+					case D_PIPE2:
+						load_sprite(SPR_PIPE2, (spr_rect*) &src);
+						break;
+					case D_TORCH:
+						load_sprite(SPR_TORCH, (spr_rect*) &src);
+						break;
+				}
+				SDL_RenderCopy(renderer, tex, &src, &dest);
+			} else if (state.ren_mode == REN_ENTIIES) {
+
+				// rendering enemies
+				for (i = 0; i < alist_size(state.enemies); ++i) {
+					entity_t* enemy = alist_get(state.enemies, i);
+					if (x + xoff == enemy->x && y + yoff == enemy->y) {
+						load_sprite(SPR_ENEMY1, (spr_rect*) &src);
+						SDL_SetTextureColorMod(tex, light, light * 0.8 * (enemy->hp / E_DEF_HP),
+											   light * 0.5 * (enemy->hp / E_DEF_HP));
+						SDL_RenderCopy(renderer, tex, &src, &dest);
+						SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
+						if (lvlxy(0, 1) == B_WALL &&
+							(lvlxy(0, 0) == B_FLOOR ||
+							 lvlxy(0, 0) == B_PATH) && !(state.ren_mode == REN_ENTIIES)) {
+							load_sprite(SPR_TWALL, (spr_rect*) &src);
+							SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
+							SDL_RenderCopy(renderer, tex, &src, &dest);
+						}
+					}
 				}
 
+				// rendering entities
+				for (i = 0; i < alist_size(state.entities); ++i) {
+					entity_t* e = alist_get(state.entities, i);
+					assert(e != NULL);
+					switch (e->type) {
+						case E_NONE:
+							break;
+						case E_PLAYER:
+							break;
+						case E_LIGHT:
+							break;
+						case E_ENEMY:
+							break;
+						case E_PEW:
+							if (x + xoff == e->x && y + yoff == e->y) {
+								load_sprite(SPR_FBOY, (spr_rect*) &src);
+								dest.y -= 10;
+								SDL_RenderCopy(renderer, tex, &src, &dest);
+								dest.y += 10;
+							}
+							break;
+					}
+
+				}
+			} else if (state.ren_mode == REN_SOLUTION) {
+				if (lvlxy(0,0) == B_PATH){
+					load_sprite(SPR_COIN, (spr_rect*) &src);
+					SDL_RenderCopy(renderer, tex, &src, &dest);
+				}
 			}
 
 			// rendering player
@@ -492,6 +507,8 @@ void init_game() {
 	state.l_type[2] = L_DISABLED;
 
 	state.player = player_new(1, 1);
+
+	state.ren_mode = REN_ENTIIES;
 
 	event_dispatch(&state, ev_game_restart);
 }

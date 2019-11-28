@@ -10,6 +10,11 @@
 #include <entity/entity.h>
 #include "maze.h"
 
+typedef enum render_mode {
+	REN_BLOCKS,
+	REN_ENTIIES,
+	REN_SOLUTION
+} ren_mode_e;
 typedef enum lights {
 	L_NONE,
 	L_LOS,
@@ -32,6 +37,8 @@ typedef struct state {
 
 	light_e l_sw;
 	light_e l_type[3];
+
+	ren_mode_e ren_mode;
 } state_t;
 
 

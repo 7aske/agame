@@ -31,6 +31,7 @@ void ev_level_restart(state_t* state, ...) {
 	state->player.x = 1;
 	state->player.y = 1;
 	event_dispatch(state, ev_enemies_spawn);
+	overlay_solution(state->level.maze, state->level.exit_x, state->level.exit_y);
 }
 
 void ev_level_next(state_t* state, ...) {
