@@ -41,12 +41,14 @@ extern void draw_text(SDL_Renderer* renderer, TTF_Font* font, char const* text, 
 
 extern void draw_help(SDL_Renderer* renderer, TTF_Font* font) {
 
+
 	static const char
-			* const line1 = "O - maze_solve maze",
+			* const line1 = "O - toggle maze solve",
 			* const line2 = "L - toggle light",
 			* const line3 = "R - generate new maze",
-			* const line4 = "Q - quit game",
-			* const line5 = "Spc - shoot";
+			* const line4 = "Q,E - toggle realm",
+			* const line5 = "1,2,3,0 - change realm",
+			* const line6 = "Spc - shoot";
 
 	SDL_Color color = {255, 255, 255, 128};
 
@@ -55,6 +57,7 @@ extern void draw_help(SDL_Renderer* renderer, TTF_Font* font) {
 	draw_text(renderer, font, line3, 5, HEIGHT - 3 * LINE_H, &color);
 	draw_text(renderer, font, line4, 5, HEIGHT - 4 * LINE_H, &color);
 	draw_text(renderer, font, line5, 5, HEIGHT - 5 * LINE_H, &color);
+	draw_text(renderer, font, line6, 5, HEIGHT - 6 * LINE_H, &color);
 }
 
 void draw_fps(SDL_Renderer* renderer, TTF_Font* font, int const* fps) {

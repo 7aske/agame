@@ -66,7 +66,7 @@ void enemy_fpath(entity_t* e, char const* lvl, int width, int bound) {
 	if (temp == NULL) {
 		return;
 	}
-	// printf("%d %d\n", temp[0], temp[1]);
+
 	int x0, y0, x1, y1, dx, dy;
 	x0 = e->x;
 	y0 = e->y;

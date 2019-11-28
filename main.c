@@ -23,6 +23,8 @@
 #define printd(x) printf("%d\n")
 #define printt(x, y) printf("(%d, %d)\n", x, y)
 
+#define COLOR_WHITE (SDL_Color){255, 255, 255, 168}
+
 void sig_handler(int);
 
 void quit();
@@ -37,7 +39,7 @@ void Render();
 
 void Event(double delta_time);
 
-float calc_light(entity_t* source, int x, int y, float current_light);
+float calc_light(entity_t* source, int x, int y, float current_light, state_t* s);
 
 void init_game();
 
@@ -118,9 +120,6 @@ int main(int argc, char** argv) {
 		SDL_Delay(1000 / TARGET_FPS);
 	}
 
-	alist_destroy(state.light_emitters);
-	alist_destroy(state.enemies);
-	alist_destroy(state.entities);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	TTF_Quit();
@@ -174,21 +173,34 @@ void event_handler(SDL_Event* ev) {
 					overlay_solution(state.level.maze, state.level.exit_x, state.level.exit_y);
 					break;
 				case SDL_SCANCODE_L:
-					state.l_sw = state.l_sw == sizeof(state.l_type) / sizeof(light_e) - 1 ? 0 : state.l_sw + 1;
+					state_change_light(&state, 1);
 					break;
 				case SDL_SCANCODE_Q:
+					state_change_ren(&state, 1);
+					break;
+				case SDL_SCANCODE_E:
+					state_change_ren(&state, -1);
+					break;
+				case SDL_SCANCODE_K:
 					quit();
 					break;
 				case SDL_SCANCODE_1:
 					state.ren_mode = REN_BLOCKS;
 					break;
 				case SDL_SCANCODE_2:
-					state.ren_mode = REN_ENTIIES;
+					state.ren_mode = REN_ENTITIES;
 					break;
 				case SDL_SCANCODE_3:
 					state.ren_mode = REN_SOLUTION;
 					break;
+				case SDL_SCANCODE_0:
+					state.ren_mode = REN_ALL;
+					break;
+				default:
+					break;
 			}
+			break;
+		default:
 			break;
 	}
 }
@@ -203,46 +215,56 @@ void Event(double delta_time) {
 }
 
 void Update(double delta_time) {
-	entity_t* e;
 	entity_t* e1;
-	int j, i;
-
-
+	entity_t* e2;
+	int j, i, jm, im;
 	//processing entities
-	for (j = 0; j < alist_size(state.entities); ++j) {
-		e = alist_get(state.entities, j);
-		switch (e->type) {
+	jm = alist_size(state.entities);
+	for (j = 0; j < jm; ++j) {
+		e1 = alist_get(state.entities, j);
+		switch (e1->type) {
 			case E_PEW:
-				if (!pew_move(e, state.level.maze, LVL_W, B_WALL)) {
-					alist_rm_idx(state.entities, j--);
+				if (!pew_move(e1, state.level.maze, LVL_W, B_WALL)) {
+					alist_rm_idx(state.entities, j);
+					j--, jm--;
 				} else {
-					for (i = 0; i < alist_size(state.enemies); ++i) {
-						e1 = alist_get(state.enemies, i);
-						if (e->x == e1->x && e->y == e1->y) {
-							alist_rm_idx(state.entities, j--);
-							e1->hp -= e->pew.dmg;
+					im = alist_size(state.entities);
+					for (i = 0; i < im; ++i) {
+						e2 = alist_get(state.entities, i);
+						switch (e2->type) {
+							case E_ENEMY:
+								if (e1->x == e2->x && e1->y == e2->y) {
+									e2->hp -= e1->pew.dmg;
+									alist_rm_idx(state.entities, j);
+									j--, jm--, i = im, im--;
+								}
+								break;
+							default:
+								break;
 						}
+
 					}
 				}
 				break;
-		}
-	}
-	// processing enemies
-	for (j = 0; j < alist_size(state.enemies); ++j) {
-		e = alist_get(state.enemies, j);
-		if (e->hp <= 0) {
-			if (e->enemy.path != NULL) {
-				stack_destroy(e->enemy.path);
-			}
-			event_dispatch(&state, ev_score_incr);
-			alist_rm_idx(state.enemies, j--);
-
-		} else {
-			enemy_search(e, &(state.player), state.level.maze, state.level.w, state.level.h, state.level.b_wall, 0);
-			enemy_fpath(e, state.level.maze, state.level.w, B_WALL);
-			if (state.player.x == e->x && state.player.y == e->y) {
-				event_dispatch(&state, ev_game_restart);
-			}
+			case E_ENEMY:
+				if (e1->hp <= 0) {
+					if (e1->enemy.path != NULL) {
+						stack_destroy(e1->enemy.path);
+					}
+					event_dispatch(&state, ev_score_incr);
+					alist_rm_idx(state.entities, j);
+					j--, jm--;
+				} else {
+					enemy_search(e1, &(state.player), state.level.maze, state.level.w, state.level.h,
+								 state.level.b_wall, 0);
+					enemy_fpath(e1, state.level.maze, state.level.w, B_WALL);
+					if (state.player.x == e1->x && state.player.y == e1->y) {
+						event_dispatch(&state, ev_game_restart);
+					}
+				}
+				break;
+			default:
+				break;
 		}
 	}
 	// processing player
@@ -260,38 +282,36 @@ void Update(double delta_time) {
 void Render() {
 	#undef lvlxy
 	#define lvlxy(ox, oy) state.level.maze[((y + yoff + (oy)) * LVL_W) + (x + xoff + (ox))]
-
+	#define dlvlxy(ox, oy) state.level.doodads[((y + yoff + (oy)) * LVL_W) + (x + xoff + (ox))]
 	assert(state.level.doodads != NULL);
 	assert(state.level.maze != NULL);
-
-	float light = 255;
+	float light;
 	char text_buf[128];
+	int i, x, y;
 	int xoff = (int) (state.player.x / SCR_W) * SCR_W;
 	int yoff = (int) (state.player.y / SCR_H) * SCR_H;
-	int i;
 	SDL_Rect dest;
 	SDL_Rect src;
-	for (int y = 0; y < SCR_H; ++y) {
-		for (int x = 0; x < SCR_W; ++x) {
-			dest.h = BSIZE;
-			dest.w = BSIZE;
+	dest.h = BSIZE;
+	dest.w = BSIZE;
+	for (y = 0; y < SCR_H; ++y) {
+		for (x = 0; x < SCR_W; ++x) {
 			dest.x = BSIZE * x;
 			dest.y = BSIZE * y;
 
-
+			// rendering lights
+			light = 0.0f;
+			for (i = 0; i < alist_size(state.light_emitters); ++i) {
+				entity_t* source = alist_get(state.light_emitters, i);
+				if (dist_to(source->x, source->y, x + xoff, y + yoff) < 10) {
+					light = calc_light(source, x + xoff, y + yoff, light, &state);
+				}
+			}
+			light = calc_light(&state.player, x + xoff, y + yoff, light, &state);
 			SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
 
-			if (state.ren_mode == REN_BLOCKS) {
-				// rendering lights
-				light = 0;
-				for (i = 0; i < alist_size(state.light_emitters); ++i) {
-					entity_t* source = alist_get(state.light_emitters, i);
-					if (dist_to(x + xoff, y + yoff, source->x, source->y) < 10) {
-						light = calc_light(source, x + xoff, y + yoff, light);
-					}
-				}
+			if (state.ren_mode == REN_BLOCKS || state.ren_mode == REN_ALL) {
 
-				light = calc_light(&state.player, x + xoff, y + yoff, light);
 				// rendering background
 				switch (lvlxy(0, 0)) {
 					case B_WALL:
@@ -299,31 +319,13 @@ void Render() {
 						break;
 					case B_EXIT:
 						load_sprite(SPR_DLADDER, (spr_rect*) &src);
-						if (lvlxy(0, 1) == B_WALL) {
-							SDL_RenderCopy(renderer, tex, &src, &dest);
-							load_sprite(SPR_TWALL, (spr_rect*) &src);
-						}
 						break;
+					case B_PATH:
 					case B_FLOOR:
 						if (lvlxy(0, -1) == B_WALL) {
 							load_sprite(SPR_TFLOOR, (spr_rect*) &src);
 						} else {
 							load_sprite(SPR_FLOOR, (spr_rect*) &src);
-						}
-						if (lvlxy(0, 1) == B_WALL) {
-							SDL_RenderCopy(renderer, tex, &src, &dest);
-							load_sprite(SPR_TWALL, (spr_rect*) &src);
-						}
-						break;
-					case B_PATH:
-						if (lvlxy(0, -1) == B_WALL) {
-							load_sprite(SPR_TFLOOR, (spr_rect*) &src);
-						} else {
-							load_sprite(SPR_FLOOR, (spr_rect*) &src);
-						}
-						if (lvlxy(0, 1) == B_WALL) {
-							SDL_RenderCopy(renderer, tex, &src, &dest);
-							load_sprite(SPR_TWALL, (spr_rect*) &src);
 						}
 						break;
 
@@ -331,7 +333,7 @@ void Render() {
 				SDL_RenderCopy(renderer, tex, &src, &dest);
 
 				// rendering doodads
-				switch (state.level.doodads[((y + yoff) * LVL_W) + (x + xoff)]) {
+				switch (dlvlxy(0, 0)) {
 					case D_BRICK:
 						load_sprite(SPR_MBRICK, (spr_rect*) &src);
 						break;
@@ -351,24 +353,11 @@ void Render() {
 							SDL_RenderCopy(renderer, tex, &src, &dest);
 							load_sprite(SPR_OOZEF, (spr_rect*) &src);
 							dest.y += BSIZE;
-							if (lvlxy(0, 0) == B_PATH) {
-								SDL_RenderCopy(renderer, tex, &src, &dest);
-								load_sprite(SPR_COIN, (spr_rect*) &src);
-							}
-							if ((lvlxy(0, 0) == B_FLOOR || lvlxy(0, 0) == B_PATH) &&
-								lvlxy(0, 1) == B_WALL) {
-								SDL_RenderCopy(renderer, tex, &src, &dest);
-								load_sprite(SPR_TWALL, (spr_rect*) &src);
-							}
 						}
 						break;
 					case D_SKULL:
 						SDL_RenderCopy(renderer, tex, &src, &dest);
 						load_sprite(SPR_SKULL, (spr_rect*) &src);
-						if (lvlxy(0, 1) == B_WALL) {
-							SDL_RenderCopy(renderer, tex, &src, &dest);
-							load_sprite(SPR_TWALL, (spr_rect*) &src);
-						}
 						break;
 					case D_PIPE1:
 						load_sprite(SPR_PIPE, (spr_rect*) &src);
@@ -381,27 +370,9 @@ void Render() {
 						break;
 				}
 				SDL_RenderCopy(renderer, tex, &src, &dest);
-			} else if (state.ren_mode == REN_ENTIIES) {
 
-				// rendering enemies
-				for (i = 0; i < alist_size(state.enemies); ++i) {
-					entity_t* enemy = alist_get(state.enemies, i);
-					if (x + xoff == enemy->x && y + yoff == enemy->y) {
-						load_sprite(SPR_ENEMY1, (spr_rect*) &src);
-						SDL_SetTextureColorMod(tex, light, light * 0.8 * (enemy->hp / E_DEF_HP),
-											   light * 0.5 * (enemy->hp / E_DEF_HP));
-						SDL_RenderCopy(renderer, tex, &src, &dest);
-						SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
-						if (lvlxy(0, 1) == B_WALL &&
-							(lvlxy(0, 0) == B_FLOOR ||
-							 lvlxy(0, 0) == B_PATH) && !(state.ren_mode == REN_ENTIIES)) {
-							load_sprite(SPR_TWALL, (spr_rect*) &src);
-							SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
-							SDL_RenderCopy(renderer, tex, &src, &dest);
-						}
-					}
-				}
-
+			}
+			if (state.ren_mode == REN_ENTITIES || state.ren_mode == REN_ALL) {
 				// rendering entities
 				for (i = 0; i < alist_size(state.entities); ++i) {
 					entity_t* e = alist_get(state.entities, i);
@@ -414,6 +385,13 @@ void Render() {
 						case E_LIGHT:
 							break;
 						case E_ENEMY:
+							if (x + xoff == e->x && y + yoff == e->y) {
+								load_sprite(SPR_ENEMY1, (spr_rect*) &src);
+								SDL_SetTextureColorMod(tex, light, light * 0.8 * (e->hp / E_DEF_HP),
+													   light * 0.5 * (e->hp / E_DEF_HP));
+								SDL_RenderCopy(renderer, tex, &src, &dest);
+								SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
+							}
 							break;
 						case E_PEW:
 							if (x + xoff == e->x && y + yoff == e->y) {
@@ -426,8 +404,9 @@ void Render() {
 					}
 
 				}
-			} else if (state.ren_mode == REN_SOLUTION) {
-				if (lvlxy(0,0) == B_PATH){
+			}
+			if (state.ren_mode == REN_SOLUTION || state.ren_mode == REN_ALL) {
+				if (lvlxy(0, 0) == B_PATH) {
 					load_sprite(SPR_COIN, (spr_rect*) &src);
 					SDL_RenderCopy(renderer, tex, &src, &dest);
 				}
@@ -436,44 +415,60 @@ void Render() {
 			// rendering player
 			if (x + xoff == state.player.x && y + yoff == state.player.y) {
 				load_sprite(SPR_PLAYER, (spr_rect*) &src);
-				SDL_SetTextureColorMod(tex, 255, 255, 255);
 				SDL_RenderCopy(renderer, tex, &src, &dest);
+			}
 
-				if (lvlxy(0, 1) == B_WALL &&
-					(lvlxy(0, 0) == B_FLOOR ||
-					 lvlxy(0, 0) == B_PATH)) {
+			if (state.ren_mode == REN_BLOCKS || state.ren_mode == REN_ALL) {
+				if (lvlxy(0, 1) == B_WALL && (lvlxy(0, 0) == B_FLOOR || lvlxy(0, 0) == B_PATH)) {
 					load_sprite(SPR_TWALL, (spr_rect*) &src);
-					SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
 					SDL_RenderCopy(renderer, tex, &src, &dest);
 				}
 			}
 		}
 	}
 	snprintf(text_buf, 127, "Level: %d | Score: %d", state.level_count + 1, state.score);
-	SDL_Color color = {255, 255, 255, 168};
-	draw_text(renderer, font, text_buf, 10, 10, &color);
+	draw_text(renderer, font, text_buf, 10, 10, &(COLOR_WHITE));
 	draw_help(renderer, font);
 
 	#undef lvlxy
 }
 
 
-float calc_light(entity_t* source, int x, int y, float current_light) {
+void init_game() {
+	entity_t player;
+	state.entities = alist_new(sizeof(entity_t));
+	state.light_emitters = alist_new(sizeof(entity_t));
+	state.event_queue = queue_new(sizeof(event_t));
+
+	state.level.doodads = NULL;
+	state.level.maze = NULL;
+
+	state.light = L_AREA;
+
+	player = player_new(1, 1);
+	memcpy(&state.player, &player, sizeof(entity_t));
+
+	state.ren_mode = REN_ENTITIES;
+
+	event_dispatch(&state, ev_game_restart);
+}
+
+float calc_light(entity_t* source, int x, int y, float current_light, state_t* s) {
 	assert(source != NULL);
 	float intensity = 3;
 	if (source->type == E_LIGHT) {
 		intensity = source->light.intensity;
 	}
 	float rel_light = 0, dist, a;
-	a = 1.0f - (10.0f - (rand() % 25)) / 100.0f;
+	a = 1.0f - (50.0f - (rand() % 25)) / 100.0f;
 	dist = dist_to(source->x, source->y, x, y);
 
-	switch (state.l_type[state.l_sw]) {
+	switch (s->light) {
 		case L_NONE:
-			rel_light = 0;
+			rel_light = 0.0f;
 			break;
 		case L_LOS:
-			if (bresenham(source->x, source->y, x, y, state.level.maze, LVL_W, B_WALL)) {
+			if (bresenham(source->x, source->y, x, y, s->level.maze, s->level.w, s->level.b_wall)) {
 				rel_light = 255.0f / (dist / intensity) * a;
 				rel_light = rel_light > 255 ? 255 : rel_light;
 			} else {
@@ -481,34 +476,18 @@ float calc_light(entity_t* source, int x, int y, float current_light) {
 				rel_light = rel_light > 170 ? 170 : rel_light;
 			}
 			break;
-		case L_NOLOS:
+		case L_AREA:
 			rel_light = 255.0f / (dist / intensity) * a;
-			rel_light = rel_light > 255 ? 255 : rel_light;
+			if (rel_light > 255) {
+				rel_light = 255;
+			} else if (rel_light < 40) {
+				rel_light = 0;
+			}
+
 			break;
-		case L_DISABLED:
-			rel_light = 255;
+		case L_ALL:
+			rel_light = 255.0f;
 			break;
 	}
 	return fmaxf(rel_light, current_light);
-}
-
-void init_game() {
-	state.entities = alist_new(sizeof(entity_t));
-	state.enemies = alist_new(sizeof(entity_t));
-	state.light_emitters = alist_new(sizeof(entity_t));
-	state.event_queue = queue_new(sizeof(event_t));
-
-	state.level.doodads = NULL;
-	state.level.maze = NULL;
-
-	state.l_sw = 0;
-	state.l_type[0] = L_LOS;
-	state.l_type[1] = L_NOLOS;
-	state.l_type[2] = L_DISABLED;
-
-	state.player = player_new(1, 1);
-
-	state.ren_mode = REN_ENTIIES;
-
-	event_dispatch(&state, ev_game_restart);
 }

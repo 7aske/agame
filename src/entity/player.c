@@ -13,7 +13,7 @@ void player_shoot(entity_t* e, alist_t* entities) {
 	entity_t newpew;
 	newpew.x = e->x;
 	newpew.y = e->y;
-	newpew.hp = 1;
+	newpew.hp = 10.0f;
 	newpew.type = E_PEW;
 	newpew.pew.dir = e->player.dir;
 	newpew.pew.dmg = e->player.dmg;
@@ -26,12 +26,11 @@ entity_t player_new(int x, int y) {
 	newplayer.x = x;
 	newplayer.y = y;
 	newplayer.hp = E_DEF_HP;
-	newplayer.player.dmg = E_DEF_DMG;
 	newplayer.next_move = E_DEF_PNEXT_MOVE;
+	newplayer.type = E_PLAYER;
+	newplayer.player.dmg = E_DEF_DMG;
 	newplayer.player.next_shot = E_DEF_PNEXT_SHOT;
 	newplayer.player.dir = DIR_DOWN;
-	newplayer.type = E_PLAYER;
-	printf("%p\n", &newplayer);
 	return newplayer;
 }
 

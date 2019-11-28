@@ -15,12 +15,6 @@
 #include "structs/queue.h"
 #include "cleanup_functions.h"
 
-
-typedef struct coord {
-	int x;
-	int y;
-} coord_t;
-
 extern int bresenham(int x0, int y0, int x1, int y1, char const* level, int width, int boundary_block);
 
 extern astack_t*
@@ -33,5 +27,6 @@ _backtrack_find(int x0, int y0, int x1, int y1, char const* level, char* visited
 float dist_to(int sx, int sy, int dx, int dy);
 
 void reverse_astack(astack_t* astack);
+
 
 #endif //AGAME_UTIL_H

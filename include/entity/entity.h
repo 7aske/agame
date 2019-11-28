@@ -9,6 +9,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <maze.h>
 
 #include "structs/arraylist.h"
 #include "util.h"
@@ -40,7 +41,7 @@ enum entities {
 typedef struct player {
 	enum dir dir;
 	int next_shot;
-	int dmg;
+	float dmg;
 } player_t;
 
 typedef struct light {
@@ -54,10 +55,8 @@ typedef struct enemy {
 
 typedef struct pew {
 	enum dir dir;
-	int dmg;
-	int speed;
+	float dmg;
 } pew_t;
-
 
 typedef struct entity {
 	int x;

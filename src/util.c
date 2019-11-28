@@ -89,4 +89,3 @@ void reverse_astack(astack_t* stack) {
 	}
 	queue_destroy(queue);
 }
-

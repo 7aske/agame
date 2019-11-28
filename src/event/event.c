@@ -18,7 +18,6 @@ void ev_level_restart(state_t* state, ...) {
 	for (int y = 0; y < state->level.h; ++y) {
 		for (int x = 0; x < state->level.w; ++x) {
 			if (state->level.doodads[y * state->level.w + x] == D_TORCH) {
-				printf("%d %d\n", x, y);
 				source.x = x;
 				source.y = y;
 				source.light.intensity = 1.0f;
@@ -51,20 +50,29 @@ void ev_enemy_spawn(state_t* state, ...) {
 
 void ev_enemies_spawn(state_t* state, ...) {
 	assert(state != NULL);
-	assert(state->enemies != NULL);
 	assert(state->level.maze != NULL);
-	alist_clear(state->enemies);
+	assert(state->entities != NULL);
 	#define ENEMY_COUNT 30
-	entity_t enemy;
+	entity_t e;
+	entity_t* eptr;
 	int i, dx, dy;
+
+	// clear existing enemies
+	for (i = 0; i < alist_size(state->entities); ++i) {
+		eptr = alist_get(state->entities, i);
+		if (eptr->type == E_ENEMY) {
+			alist_rm_idx(state->entities, i--);
+		}
+	}
+
 	for (i = 0; i < ENEMY_COUNT; ++i) {
 		while (state->level.maze[(dy = rand() % state->level.h) * state->level.w + (dx = rand() % state->level.w)] !=
 			   B_FLOOR);
-		enemy = enemy_new(0, 0);
-		enemy.x = dx;
-		enemy.y = dy;
-		enemy_search(&enemy, &state->player, state->level.maze, state->level.w, state->level.h, state->level.b_wall, 1);
-		alist_add(state->enemies, &enemy);
+		e = enemy_new(0, 0);
+		e.x = dx;
+		e.y = dy;
+		enemy_search(&e, &state->player, state->level.maze, state->level.w, state->level.h, state->level.b_wall, 1);
+		alist_add(state->entities, &e);
 	}
 }
 
