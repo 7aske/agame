@@ -18,7 +18,7 @@ void ev_score_incr(state_t* state, ...);
 
 void ev_score_reset(state_t* state, ...);
 
-void ev_enemies_spawn(state_t* state, ...);
+void ev_enemies_destroy(state_t* state, ...);
 
 void ev_enemy_spawn(state_t* state, ...);
 

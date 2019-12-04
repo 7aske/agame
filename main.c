@@ -6,12 +6,15 @@
 #include <SDL2/SDL_image.h>
 #include <signal.h>
 #include <assert.h>
+#include <entity/enemy_spawner.h>
 
 #include "macro_definitions.h"
 #include "draw_misc.h"
 
 #include "state.h"
 #include "entity/player.h"
+#include "entity/enemy_spawner.h"
+#include "entity/light.h"
 #include "entity/pew.h"
 #include "event/event.h"
 #include "entity/enemy.h"
@@ -29,8 +32,6 @@ void sig_handler(int);
 
 void quit();
 
-void sdlerr_handler()__attribute__((noreturn));
-
 void event_handler(SDL_Event*);
 
 void Update(double delta_time);
@@ -38,8 +39,6 @@ void Update(double delta_time);
 void Render();
 
 void Event(double delta_time);
-
-float calc_light(entity_t* source, int x, int y, float current_light, state_t* s);
 
 void init_game();
 
@@ -61,7 +60,7 @@ int main(int argc, char** argv) {
 	SDL_Surface* surface = NULL;
 	//Initialize SDL
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
-		sdlerr_handler();
+		_sdlerr(renderer, window);
 
 	TTF_Init();
 	//Create window
@@ -72,19 +71,19 @@ int main(int argc, char** argv) {
 							  HEIGHT,
 							  SDL_WINDOW_SHOWN);
 	if (!window)
-		sdlerr_handler();
+		_sdlerr(renderer, window);
 	SDL_SetWindowTitle(window, WINDOW_TITLE);
 	SDL_SetWindowResizable(window, SDL_FALSE);
 
 	renderer = SDL_CreateRenderer(window, -1, render_flags);
 	if (!renderer)
-		sdlerr_handler();
+		_sdlerr(renderer, window);
 
 	surface = IMG_Load("res/sprites.png");
 	tex = SDL_CreateTextureFromSurface(renderer, surface);
 	SDL_FreeSurface(surface);
 	if (!tex)
-		sdlerr_handler();
+		_sdlerr(renderer, window);
 
 	font = TTF_OpenFont("res/DejaVuSans-Bold.ttf", 24);
 	if (!font)
@@ -131,15 +130,6 @@ void sig_handler(int sig) {
 	if (sig == SIGINT) {
 		running = 0;
 	}
-}
-
-void sdlerr_handler() {
-	fprintf(stderr, "SDL_Error: %s\n", SDL_GetError());
-	SDL_DestroyRenderer(renderer);
-	SDL_DestroyWindow(window);
-	TTF_Quit();
-	SDL_Quit();
-	exit(1);
 }
 
 void quit() {
@@ -210,7 +200,9 @@ void Event(double delta_time) {
 	event_t* ev;
 	while (!queue_isempty(state.event_queue)) {
 		ev = queue_dequeue(state.event_queue);
+		assert(ev != NULL);
 		ev->callback(&state);
+		free(ev);
 	}
 }
 
@@ -263,6 +255,8 @@ void Update(double delta_time) {
 					}
 				}
 				break;
+			case E_ENEMY_SPAWNER:
+				spawner_spawn(e1, &state);
 			default:
 				break;
 		}
@@ -281,6 +275,7 @@ void Update(double delta_time) {
 
 void Render() {
 	#undef lvlxy
+	#undef dlvlxy
 	#define lvlxy(ox, oy) state.level.maze[((y + yoff + (oy)) * LVL_W) + (x + xoff + (ox))]
 	#define dlvlxy(ox, oy) state.level.doodads[((y + yoff + (oy)) * LVL_W) + (x + xoff + (ox))]
 	assert(state.level.doodads != NULL);
@@ -419,23 +414,27 @@ void Render() {
 			}
 
 			if (state.ren_mode == REN_BLOCKS || state.ren_mode == REN_ALL) {
-				if (lvlxy(0, 1) == B_WALL && (lvlxy(0, 0) == B_FLOOR || lvlxy(0, 0) == B_PATH)) {
+				if (lvlxy(0, 1) == B_WALL &&
+					(lvlxy(0, 0) == B_FLOOR || lvlxy(0, 0) == B_PATH || lvlxy(0, 0) == B_EXIT)) {
 					load_sprite(SPR_TWALL, (spr_rect*) &src);
 					SDL_RenderCopy(renderer, tex, &src, &dest);
 				}
 			}
 		}
 	}
-	snprintf(text_buf, 127, "Level: %d | Score: %d", state.level_count + 1, state.score);
+	snprintf(text_buf, 127, "Level: %d | Score: %d | Enemies: %d", state.level_count + 1, state.score,
+			 state.current_enemies);
 	draw_text(renderer, font, text_buf, 10, 10, &(COLOR_WHITE));
 	draw_help(renderer, font);
 
 	#undef lvlxy
+	#undef dlvlxy
 }
 
 
 void init_game() {
 	entity_t player;
+	entity_t spawner;
 	state.entities = alist_new(sizeof(entity_t));
 	state.light_emitters = alist_new(sizeof(entity_t));
 	state.event_queue = queue_new(sizeof(event_t));
@@ -444,50 +443,14 @@ void init_game() {
 	state.level.maze = NULL;
 
 	state.light = L_AREA;
+	state.current_enemies = 0;
 
 	player = player_new(1, 1);
 	memcpy(&state.player, &player, sizeof(entity_t));
+	spawner = spawner_new();
+	alist_add(state.entities, &spawner);
 
 	state.ren_mode = REN_ENTITIES;
 
 	event_dispatch(&state, ev_game_restart);
-}
-
-float calc_light(entity_t* source, int x, int y, float current_light, state_t* s) {
-	assert(source != NULL);
-	float intensity = 3;
-	if (source->type == E_LIGHT) {
-		intensity = source->light.intensity;
-	}
-	float rel_light = 0, dist, a;
-	a = 1.0f - (50.0f - (rand() % 25)) / 100.0f;
-	dist = dist_to(source->x, source->y, x, y);
-
-	switch (s->light) {
-		case L_NONE:
-			rel_light = 0.0f;
-			break;
-		case L_LOS:
-			if (bresenham(source->x, source->y, x, y, s->level.maze, s->level.w, s->level.b_wall)) {
-				rel_light = 255.0f / (dist / intensity) * a;
-				rel_light = rel_light > 255 ? 255 : rel_light;
-			} else {
-				rel_light = 170.0f / dist * a;
-				rel_light = rel_light > 170 ? 170 : rel_light;
-			}
-			break;
-		case L_AREA:
-			rel_light = 255.0f / (dist / intensity) * a;
-			if (rel_light > 255) {
-				rel_light = 255;
-			} else if (rel_light < 40) {
-				rel_light = 0;
-			}
-
-			break;
-		case L_ALL:
-			rel_light = 255.0f;
-			break;
-	}
-	return fmaxf(rel_light, current_light);
 }

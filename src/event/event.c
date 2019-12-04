@@ -10,13 +10,14 @@ void ev_level_start(state_t* state, ...) {
 }
 
 void ev_level_restart(state_t* state, ...) {
+	int y, x;
 	maze_clear(&state->level);
 	maze_new(&state->level);
 	alist_clear(state->light_emitters);
 
 	entity_t source;
-	for (int y = 0; y < state->level.h; ++y) {
-		for (int x = 0; x < state->level.w; ++x) {
+	for (y = 0; y < state->level.h; ++y) {
+		for (x = 0; x < state->level.w; ++x) {
 			if (state->level.doodads[y * state->level.w + x] == D_TORCH) {
 				source.x = x;
 				source.y = y;
@@ -29,7 +30,8 @@ void ev_level_restart(state_t* state, ...) {
 	while (!queue_isempty(state->event_queue)) { queue_dequeue(state->event_queue); }
 	state->player.x = 1;
 	state->player.y = 1;
-	event_dispatch(state, ev_enemies_spawn);
+	ev_enemies_destroy(state);
+
 	overlay_solution(state->level.maze, state->level.exit_x, state->level.exit_y);
 }
 
@@ -45,35 +47,40 @@ void ev_game_restart(state_t* state, ...) {
 }
 
 void ev_enemy_spawn(state_t* state, ...) {
-
+	va_list argp;
+	int x, y;
+	entity_t e;
+	va_start(argp, state);
+	x = va_arg(argp, int);
+	y = va_arg(argp, int);
+	assert(x > -1 && x < state->level.w);
+	assert(y > -1 && y < state->level.h);
+	e = enemy_new(0, 0);
+	e.x = x;
+	e.y = y;
+	enemy_search(&e, &state->player, state->level.maze, state->level.w, state->level.h, state->level.b_wall, 1);
+	alist_add(state->entities, &e);
+	state->current_enemies++;
+	va_end(argp);
 }
 
-void ev_enemies_spawn(state_t* state, ...) {
+void ev_enemies_destroy(state_t* state, ...) {
 	assert(state != NULL);
 	assert(state->level.maze != NULL);
 	assert(state->entities != NULL);
-	#define ENEMY_COUNT 30
-	entity_t e;
 	entity_t* eptr;
-	int i, dx, dy;
-
+	int i;
 	// clear existing enemies
 	for (i = 0; i < alist_size(state->entities); ++i) {
 		eptr = alist_get(state->entities, i);
 		if (eptr->type == E_ENEMY) {
+			if (eptr->enemy.path != NULL) {
+				stack_destroy(eptr->enemy.path);
+			}
 			alist_rm_idx(state->entities, i--);
 		}
 	}
-
-	for (i = 0; i < ENEMY_COUNT; ++i) {
-		while (state->level.maze[(dy = rand() % state->level.h) * state->level.w + (dx = rand() % state->level.w)] !=
-			   B_FLOOR);
-		e = enemy_new(0, 0);
-		e.x = dx;
-		e.y = dy;
-		enemy_search(&e, &state->player, state->level.maze, state->level.w, state->level.h, state->level.b_wall, 1);
-		alist_add(state->entities, &e);
-	}
+	state->current_enemies = 0;
 }
 
 void ev_score_reset(state_t* state, ...) {
@@ -82,6 +89,7 @@ void ev_score_reset(state_t* state, ...) {
 
 void ev_score_incr(state_t* state, ...) {
 	state->score++;
+	state->current_enemies--;
 }
 
 void event_dispatch(state_t* state, void (* callback)(state_t*, ...)) {

@@ -16,6 +16,8 @@
 
 #define E_DEF_HP 100.0f
 #define E_DEF_NEXT_SEARCH 400
+#define E_DEF_NEXT_SPAWN 400
+#define E_DEF_MAX_ENEMIES(x) ((x) * 2 + 5)
 #define E_DEF_NEXT_MOVE 60
 #define E_DEF_PNEXT_MOVE 5
 #define E_DEF_PNEXT_SHOT 20
@@ -35,6 +37,7 @@ enum entities {
 	E_PLAYER,
 	E_LIGHT,
 	E_ENEMY,
+	E_ENEMY_SPAWNER,
 	E_PEW,
 };
 
@@ -53,6 +56,11 @@ typedef struct enemy {
 	astack_t* path;
 } enemy_t;
 
+typedef struct enemy_spawner {
+	int next_spawn;
+	int rate;
+} enemy_spawner_t;
+
 typedef struct pew {
 	enum dir dir;
 	float dmg;
@@ -66,6 +74,7 @@ typedef struct entity {
 	union {
 		player_t player;
 		enemy_t enemy;
+		enemy_spawner_t espawner;
 		light_t light;
 		pew_t pew;
 	};

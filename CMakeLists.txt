@@ -6,7 +6,7 @@ set(TARGET agame)
 include_directories(include internal)
 add_subdirectory(src)
 
-add_executable(${TARGET} main.c src/maze.c src/util.c src/entity/entity.c src/entity/enemy.c src/entity/player.c src/entity/pew.c src/event/event.c src/state.c)
+add_executable(${TARGET} main.c src/maze.c src/util.c src/entity/entity.c src/entity/enemy.c src/entity/player.c src/entity/pew.c src/event/event.c src/state.c src/entity/light.c src/entity/enemy_spawner.c)
 
 find_package(SDL2 REQUIRED SDL2)
 
