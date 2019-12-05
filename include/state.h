@@ -35,8 +35,7 @@ typedef struct state {
 
 	int level_count;
 	int score;
-	int current_enemies;
-
+	
 	light_e light;
 	ren_mode_e ren_mode;
 } state_t;

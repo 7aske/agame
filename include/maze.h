@@ -15,6 +15,13 @@
 
 #include "macro_definitions.h"
 
+#define BRICK_COUNT 80
+#define GRATE_COUNT 30
+#define OOZE_COUNT 30
+#define SKULL_COUNT 10
+#define PIPE_COUNT 30
+#define TORCH_COUNT 10
+
 enum blocks_e {
 	B_NONE,
 	B_PATH,

@@ -10,6 +10,6 @@
 
 #include "entity/entity.h"
 
-float calc_light(entity_t* source, int x, int y, float current_light, state_t* state);
+float light_calc(entity_t* source, int x, int y, float current_light, state_t* state);
 
 #endif //AGAME_LIGHT_H

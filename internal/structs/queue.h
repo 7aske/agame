@@ -50,7 +50,7 @@ static void* queue_dequeue(queue_t* queue) {
 	}
 }
 
-static void* queue_front(queue_t* queue){
+static void* queue_front(queue_t* queue) {
 	if (queue->data->head != NULL) {
 		return queue->data->head->data;
 	} else {
@@ -62,5 +62,13 @@ static int queue_isempty(queue_t* queue) {
 	return llist_isempty(queue->data);
 }
 
+
+static void queue_clear(queue_t* queue) {
+	void* ptr;
+	while (!queue_isempty(queue)) {
+		ptr = queue_dequeue(queue);
+		free(ptr);
+	}
+}
 
 #endif //STRUCTS_QUEUE_H

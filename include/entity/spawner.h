@@ -2,8 +2,8 @@
 // Created by nik on 12/4/19.
 //
 
-#ifndef AGAME_ENEMY_SPAWNER_H
-#define AGAME_ENEMY_SPAWNER_H
+#ifndef AGAME_SPAWNER_H
+#define AGAME_SPAWNER_H
 
 #pragma once
 
@@ -15,4 +15,4 @@ int spawner_spawn(entity_t* e, state_t* state);
 
 entity_t spawner_new();
 
-#endif //AGAME_ENEMY_SPAWNER_H
+#endif //AGAME_SPAWNER_H

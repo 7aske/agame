@@ -9,7 +9,7 @@
 
 #include "entity/entity.h"
 
-entity_t enemy_new(int x, int y);
+entity_t enemy_new(int x, int y, void* origin);
 
 void enemy_search(entity_t* e, entity_t* tar, char const* level, int width, int height, int boundary, int force_search);
 

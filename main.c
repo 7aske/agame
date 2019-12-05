@@ -6,53 +6,43 @@
 #include <SDL2/SDL_image.h>
 #include <signal.h>
 #include <assert.h>
-#include <entity/enemy_spawner.h>
 
 #include "macro_definitions.h"
 #include "draw_misc.h"
 
 #include "state.h"
 #include "entity/player.h"
-#include "entity/enemy_spawner.h"
+#include "entity/spawner.h"
 #include "entity/light.h"
 #include "entity/pew.h"
-#include "event/event.h"
 #include "entity/enemy.h"
+#include "event/event.h"
 
 #include "sprites.h"
 #include "maze.h"
 #include "util.h"
 
-#define printd(x) printf("%d\n")
-#define printt(x, y) printf("(%d, %d)\n", x, y)
-
-#define COLOR_WHITE (SDL_Color){255, 255, 255, 168}
-
 void sig_handler(int);
 
-void quit();
+void Input(state_t* state, SDL_Event*, volatile int* running);
 
-void event_handler(SDL_Event*);
+void Update(state_t* state, double delta_time);
 
-void Update(double delta_time);
+void Render(state_t* state, SDL_Renderer* renderer, SDL_Texture* tex, TTF_Font* font);
 
-void Render();
+void Event(state_t* state, double delta_time);
 
-void Event(double delta_time);
+void init_game(state_t* state);
 
-void init_game();
-
-state_t state;
-
-volatile static int running = 1;
-
-static SDL_Window* window = NULL;
-static SDL_Renderer* renderer = NULL;
-static uint32_t render_flags = SDL_RENDERER_ACCELERATED;
-static TTF_Font* font;
-static SDL_Texture* tex;
 
 int main(int argc, char** argv) {
+	volatile static int running = 1;
+	static SDL_Window* window = NULL;
+	static SDL_Renderer* renderer = NULL;
+	static uint32_t render_flags = SDL_RENDERER_ACCELERATED;
+	static TTF_Font* font;
+	static SDL_Texture* texture;
+	static state_t state;
 	maze_test_macros();
 	signal(SIGINT, sig_handler);
 
@@ -80,16 +70,16 @@ int main(int argc, char** argv) {
 		_sdlerr(renderer, window);
 
 	surface = IMG_Load("res/sprites.png");
-	tex = SDL_CreateTextureFromSurface(renderer, surface);
+	texture = SDL_CreateTextureFromSurface(renderer, surface);
 	SDL_FreeSurface(surface);
-	if (!tex)
+	if (!texture)
 		_sdlerr(renderer, window);
 
 	font = TTF_OpenFont("res/DejaVuSans-Bold.ttf", 24);
 	if (!font)
 		fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
 
-	init_game();
+	init_game(&state);
 
 	// setup code
 	Uint64 prev_time = SDL_GetTicks();
@@ -106,12 +96,12 @@ int main(int argc, char** argv) {
 		// printf("%f %lu %lu\n", 1000.0 / elapsed_time, elapsed_time, now_time);
 
 		while (SDL_PollEvent(&event)) {
-			event_handler(&event);
+			Input(&state, &event, &running);
 		}
 
-		Event(elapsed_time);
-		Update(elapsed_time);
-		Render(tex);
+		Event(&state, elapsed_time);
+		Update(&state, elapsed_time);
+		Render(&state, renderer, texture, font);
 
 		SDL_RenderPresent(renderer);
 		SDL_UpdateWindowSurface(window);
@@ -128,18 +118,14 @@ int main(int argc, char** argv) {
 
 void sig_handler(int sig) {
 	if (sig == SIGINT) {
-		running = 0;
+		exit(0);
 	}
 }
 
-void quit() {
-	running = 0;
-}
-
-void event_handler(SDL_Event* ev) {
+void Input(state_t* state, SDL_Event* ev, volatile int* running) {
 	switch (ev->type) {
 		case SDL_QUIT:
-			quit();
+			*running = 0;
 			break;
 		case SDL_KEYDOWN:
 			switch (ev->key.keysym.scancode) {
@@ -151,40 +137,40 @@ void event_handler(SDL_Event* ev) {
 				case SDL_SCANCODE_DOWN:
 				case SDL_SCANCODE_D:
 				case SDL_SCANCODE_RIGHT:
-					player_move(&state.player, ev->key.keysym.scancode, &state.level);
+					player_move(&state->player, ev->key.keysym.scancode, &state->level);
 					break;
 				case SDL_SCANCODE_SPACE:
-					player_shoot(&state.player, state.entities);
+					player_shoot(&state->player, state->entities);
 					break;
 				case SDL_SCANCODE_R:
-					event_dispatch(&state, ev_game_restart);
+					event_dispatch(state, EV_GAME_RESTART, ev_game_restart);
 					break;
 				case SDL_SCANCODE_O:
-					overlay_solution(state.level.maze, state.level.exit_x, state.level.exit_y);
+					overlay_solution(state->level.maze, state->level.exit_x, state->level.exit_y);
 					break;
 				case SDL_SCANCODE_L:
-					state_change_light(&state, 1);
+					state_change_light(state, 1);
 					break;
 				case SDL_SCANCODE_Q:
-					state_change_ren(&state, 1);
+					state_change_ren(state, 1);
 					break;
 				case SDL_SCANCODE_E:
-					state_change_ren(&state, -1);
+					state_change_ren(state, -1);
 					break;
 				case SDL_SCANCODE_K:
-					quit();
+					*running = 0;
 					break;
 				case SDL_SCANCODE_1:
-					state.ren_mode = REN_BLOCKS;
+					state->ren_mode = REN_BLOCKS;
 					break;
 				case SDL_SCANCODE_2:
-					state.ren_mode = REN_ENTITIES;
+					state->ren_mode = REN_ENTITIES;
 					break;
 				case SDL_SCANCODE_3:
-					state.ren_mode = REN_SOLUTION;
+					state->ren_mode = REN_SOLUTION;
 					break;
 				case SDL_SCANCODE_0:
-					state.ren_mode = REN_ALL;
+					state->ren_mode = REN_ALL;
 					break;
 				default:
 					break;
@@ -196,38 +182,39 @@ void event_handler(SDL_Event* ev) {
 }
 
 
-void Event(double delta_time) {
+void Event(state_t* state, double delta_time) {
 	event_t* ev;
-	while (!queue_isempty(state.event_queue)) {
-		ev = queue_dequeue(state.event_queue);
+	while (!queue_isempty(state->event_queue)) {
+		ev = queue_dequeue(state->event_queue);
 		assert(ev != NULL);
-		ev->callback(&state);
+		ev->callback(state);
+		printf("EVENT %s %ld\n", get_ev_type(ev), time(0));
 		free(ev);
 	}
 }
 
-void Update(double delta_time) {
+void Update(state_t* state, double delta_time) {
 	entity_t* e1;
 	entity_t* e2;
 	int j, i, jm, im;
 	//processing entities
-	jm = alist_size(state.entities);
+	jm = alist_size(state->entities);
 	for (j = 0; j < jm; ++j) {
-		e1 = alist_get(state.entities, j);
+		e1 = alist_get(state->entities, j);
 		switch (e1->type) {
 			case E_PEW:
-				if (!pew_move(e1, state.level.maze, LVL_W, B_WALL)) {
-					alist_rm_idx(state.entities, j);
+				if (!pew_move(e1, state->level.maze, LVL_W, B_WALL)) {
+					alist_rm_idx(state->entities, j);
 					j--, jm--;
 				} else {
-					im = alist_size(state.entities);
+					im = alist_size(state->entities);
 					for (i = 0; i < im; ++i) {
-						e2 = alist_get(state.entities, i);
+						e2 = alist_get(state->entities, i);
 						switch (e2->type) {
 							case E_ENEMY:
 								if (e1->x == e2->x && e1->y == e2->y) {
 									e2->hp -= e1->pew.dmg;
-									alist_rm_idx(state.entities, j);
+									alist_rm_idx(state->entities, j);
 									j--, jm--, i = im, im--;
 								}
 								break;
@@ -243,48 +230,52 @@ void Update(double delta_time) {
 					if (e1->enemy.path != NULL) {
 						stack_destroy(e1->enemy.path);
 					}
-					event_dispatch(&state, ev_score_incr);
-					alist_rm_idx(state.entities, j);
+					e2 = ((entity_t*) (e1->enemy.origin));
+					if (e2 != NULL) {
+						e2->spawner.enemy_count--;
+					}
+					alist_rm_idx(state->entities, j);
+					event_dispatch(state, EV_SCORE_INCR, ev_score_incr);
 					j--, jm--;
 				} else {
-					enemy_search(e1, &(state.player), state.level.maze, state.level.w, state.level.h,
-								 state.level.b_wall, 0);
-					enemy_fpath(e1, state.level.maze, state.level.w, B_WALL);
-					if (state.player.x == e1->x && state.player.y == e1->y) {
-						event_dispatch(&state, ev_game_restart);
+					enemy_search(e1, &(state->player), state->level.maze, state->level.w, state->level.h,
+								 state->level.b_wall, 0);
+					enemy_fpath(e1, state->level.maze, state->level.w, B_WALL);
+					if (state->player.x == e1->x && state->player.y == e1->y) {
+						event_dispatch(state, EV_GAME_RESTART, ev_game_restart);
 					}
 				}
 				break;
-			case E_ENEMY_SPAWNER:
-				spawner_spawn(e1, &state);
+			case E_SPAWNER:
+				spawner_spawn(e1, state);
 			default:
 				break;
 		}
 	}
 	// processing player
-	if (state.player.next_move > 0) {
-		state.player.next_move--;
+	if (state->player.next_move > 0) {
+		state->player.next_move--;
 	}
-	if (state.player.player.next_shot > 0) {
-		state.player.player.next_shot--;
+	if (state->player.player.next_shot > 0) {
+		state->player.player.next_shot--;
 	}
-	if (state.player.x == state.level.exit_x && state.player.y == state.level.exit_y) {
-		event_dispatch(&state, ev_level_next);
+	if (state->player.x == state->level.exit_x && state->player.y == state->level.exit_y) {
+		event_dispatch(state, EV_LEVEL_NEXT, ev_level_next);
 	}
 }
 
-void Render() {
+void Render(state_t* state, SDL_Renderer* renderer, SDL_Texture* tex, TTF_Font* font) {
 	#undef lvlxy
 	#undef dlvlxy
-	#define lvlxy(ox, oy) state.level.maze[((y + yoff + (oy)) * LVL_W) + (x + xoff + (ox))]
-	#define dlvlxy(ox, oy) state.level.doodads[((y + yoff + (oy)) * LVL_W) + (x + xoff + (ox))]
-	assert(state.level.doodads != NULL);
-	assert(state.level.maze != NULL);
+	#define lvlxy(ox, oy) state->level.maze[((y + yoff + (oy)) * LVL_W) + (x + xoff + (ox))]
+	#define dlvlxy(ox, oy) state->level.doodads[((y + yoff + (oy)) * LVL_W) + (x + xoff + (ox))]
+	assert(state->level.doodads != NULL);
+	assert(state->level.maze != NULL);
 	float light;
 	char text_buf[128];
 	int i, x, y;
-	int xoff = (int) (state.player.x / SCR_W) * SCR_W;
-	int yoff = (int) (state.player.y / SCR_H) * SCR_H;
+	int xoff = (int) (state->player.x / SCR_W) * SCR_W;
+	int yoff = (int) (state->player.y / SCR_H) * SCR_H;
 	SDL_Rect dest;
 	SDL_Rect src;
 	dest.h = BSIZE;
@@ -296,16 +287,16 @@ void Render() {
 
 			// rendering lights
 			light = 0.0f;
-			for (i = 0; i < alist_size(state.light_emitters); ++i) {
-				entity_t* source = alist_get(state.light_emitters, i);
+			for (i = 0; i < alist_size(state->light_emitters); ++i) {
+				entity_t* source = alist_get(state->light_emitters, i);
 				if (dist_to(source->x, source->y, x + xoff, y + yoff) < 10) {
-					light = calc_light(source, x + xoff, y + yoff, light, &state);
+					light = light_calc(source, x + xoff, y + yoff, light, state);
 				}
 			}
-			light = calc_light(&state.player, x + xoff, y + yoff, light, &state);
+			light = light_calc(&state->player, x + xoff, y + yoff, light, state);
 			SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
 
-			if (state.ren_mode == REN_BLOCKS || state.ren_mode == REN_ALL) {
+			if (state->ren_mode == REN_BLOCKS || state->ren_mode == REN_ALL) {
 
 				// rendering background
 				switch (lvlxy(0, 0)) {
@@ -367,18 +358,12 @@ void Render() {
 				SDL_RenderCopy(renderer, tex, &src, &dest);
 
 			}
-			if (state.ren_mode == REN_ENTITIES || state.ren_mode == REN_ALL) {
+			if (state->ren_mode == REN_ENTITIES || state->ren_mode == REN_ALL) {
 				// rendering entities
-				for (i = 0; i < alist_size(state.entities); ++i) {
-					entity_t* e = alist_get(state.entities, i);
+				for (i = 0; i < alist_size(state->entities); ++i) {
+					entity_t* e = alist_get(state->entities, i);
 					assert(e != NULL);
 					switch (e->type) {
-						case E_NONE:
-							break;
-						case E_PLAYER:
-							break;
-						case E_LIGHT:
-							break;
 						case E_ENEMY:
 							if (x + xoff == e->x && y + yoff == e->y) {
 								load_sprite(SPR_ENEMY1, (spr_rect*) &src);
@@ -400,7 +385,7 @@ void Render() {
 
 				}
 			}
-			if (state.ren_mode == REN_SOLUTION || state.ren_mode == REN_ALL) {
+			if (state->ren_mode == REN_SOLUTION || state->ren_mode == REN_ALL) {
 				if (lvlxy(0, 0) == B_PATH) {
 					load_sprite(SPR_COIN, (spr_rect*) &src);
 					SDL_RenderCopy(renderer, tex, &src, &dest);
@@ -408,12 +393,12 @@ void Render() {
 			}
 
 			// rendering player
-			if (x + xoff == state.player.x && y + yoff == state.player.y) {
+			if (x + xoff == state->player.x && y + yoff == state->player.y) {
 				load_sprite(SPR_PLAYER, (spr_rect*) &src);
 				SDL_RenderCopy(renderer, tex, &src, &dest);
 			}
 
-			if (state.ren_mode == REN_BLOCKS || state.ren_mode == REN_ALL) {
+			if (state->ren_mode == REN_BLOCKS || state->ren_mode == REN_ALL) {
 				if (lvlxy(0, 1) == B_WALL &&
 					(lvlxy(0, 0) == B_FLOOR || lvlxy(0, 0) == B_PATH || lvlxy(0, 0) == B_EXIT)) {
 					load_sprite(SPR_TWALL, (spr_rect*) &src);
@@ -422,9 +407,8 @@ void Render() {
 			}
 		}
 	}
-	snprintf(text_buf, 127, "Level: %d | Score: %d | Enemies: %d", state.level_count + 1, state.score,
-			 state.current_enemies);
-	draw_text(renderer, font, text_buf, 10, 10, &(COLOR_WHITE));
+	snprintf(text_buf, 127, "Level: %d | Score: %d", state->level_count + 1, state->score);
+	draw_text(renderer, font, text_buf, 10, 10, NULL);
 	draw_help(renderer, font);
 
 	#undef lvlxy
@@ -432,25 +416,23 @@ void Render() {
 }
 
 
-void init_game() {
+void init_game(state_t* state) {
 	entity_t player;
 	entity_t spawner;
-	state.entities = alist_new(sizeof(entity_t));
-	state.light_emitters = alist_new(sizeof(entity_t));
-	state.event_queue = queue_new(sizeof(event_t));
+	state->entities = alist_new(sizeof(entity_t));
+	state->light_emitters = alist_new(sizeof(entity_t));
+	state->event_queue = queue_new(sizeof(event_t));
 
-	state.level.doodads = NULL;
-	state.level.maze = NULL;
-
-	state.light = L_AREA;
-	state.current_enemies = 0;
+	state->level.doodads = NULL;
+	state->level.maze = NULL;
 
 	player = player_new(1, 1);
-	memcpy(&state.player, &player, sizeof(entity_t));
+	memcpy(&state->player, &player, sizeof(entity_t));
 	spawner = spawner_new();
-	alist_add(state.entities, &spawner);
+	alist_add(state->entities, &spawner);
 
-	state.ren_mode = REN_ENTITIES;
+	state->light = L_LOS;
+	state->ren_mode = REN_ALL;
 
-	event_dispatch(&state, ev_game_restart);
+	event_dispatch(state, EV_GAME_RESTART, ev_game_restart);
 }

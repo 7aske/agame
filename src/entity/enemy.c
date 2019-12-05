@@ -4,15 +4,17 @@
 
 #include "entity/enemy.h"
 
-entity_t enemy_new(int x, int y) {
+entity_t enemy_new(int x, int y, void* origin) {
 	entity_t newenemy;
 	newenemy.x = x;
 	newenemy.y = y;
 	newenemy.type = E_ENEMY;
 	newenemy.next_move = E_DEF_NEXT_MOVE;
+	newenemy.hp = E_DEF_HP;
+
 	newenemy.enemy.next_search = E_DEF_NEXT_SEARCH;
 	newenemy.enemy.path = NULL;
-	newenemy.hp = E_DEF_HP;
+	newenemy.enemy.origin = origin;
 	return newenemy;
 }
 
@@ -43,6 +45,8 @@ enemy_search(entity_t* e, entity_t* tar, char const* level, int width, int heigh
 		stack_destroy(e->enemy.path);
 	}
 	astack_t* path = backtrack_find(e->x, e->y, tar->x, tar->y, level, width, height, boundary);
+	int* top = stack_peek(path);
+	printf("ENEMY SEARCH %s (%d, %d) %ld\n", force_search ? "FORCE" : "NOFORCE", top[0], top[1], time(0));
 	reverse_astack(path);
 	e->enemy.path = path;
 }

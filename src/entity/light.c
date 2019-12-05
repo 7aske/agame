@@ -5,7 +5,7 @@
 #include "state.h"
 #include "entity/light.h"
 
-float calc_light(entity_t* source, int x, int y, float current_light, state_t* state) {
+float light_calc(entity_t* source, int x, int y, float current_light, state_t* state) {
 	assert(source != NULL);
 	float intensity = 3;
 	if (source->type == E_LIGHT) {

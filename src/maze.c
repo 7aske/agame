@@ -156,12 +156,6 @@ char* generate_doodads(char const* maze) {
 	assert(maze != NULL);
 	char* dd = calloc(LVL_H * LVL_W, sizeof(char));
 	int i, dx, dy;
-	#define BRICK_COUNT 80
-	#define GRATE_COUNT 30
-	#define OOZE_COUNT 30
-	#define SKULL_COUNT 10
-	#define PIPE_COUNT 30
-	#define TORCH_COUNT 10
 
 	srand(time(NULL));
 	for (i = 0; i < BRICK_COUNT; ++i) {

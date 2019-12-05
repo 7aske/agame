@@ -23,6 +23,9 @@
 #define LVL_W (WRLD_W * SCR_W)
 #define LVL_H (WRLD_H * SCR_H)
 
+// utils print functions
+#define printd(x) printf("%d\n")
+#define printt(x, y) printf("(%d, %d)\n", x, y)
 
 
 #endif //AGAME_MACRO_DEFINITIONS_H

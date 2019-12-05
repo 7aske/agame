@@ -31,7 +31,7 @@ float dist_to(int sx, int sy, int dx, int dy) {
 }
 
 astack_t* backtrack_find(int x0, int y0, int x1, int y1, char const* level, int width, int height, int boundary) {
-	astack_t* sol_stack = stack_new(sizeof(int[3]));
+	astack_t* sol_stack = stack_new(sizeof(int[2]));
 	void* __attribute__((cleanup(_afree))) visited = calloc(width * height, sizeof(*level));
 	_backtrack_find(x0, y0, x1, y1, level, visited, width, height, boundary, sol_stack);
 	return sol_stack;

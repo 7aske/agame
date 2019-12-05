@@ -10,9 +10,26 @@
 #include "state.h"
 #include "entity/enemy.h"
 
+enum ev_type {
+	EV_DEFAULT,
+	EV_SCORE_INCR,
+	EV_SCORE_RESET,
+	EV_ENEMIES_DESTROY,
+	EV_ENEMY_SPAWN,
+	EV_LEVEL_RESTART,
+	EV_LEVEL_START,
+	EV_LEVEL_NEXT,
+	EV_GAME_RESTART
+} ev_type_e;
+
+
 typedef struct event {
 	void (* callback)(state_t*, ...);
+
+	enum ev_type type;
 } event_t;
+
+char const* get_ev_type(event_t* ev);
 
 void ev_score_incr(state_t* state, ...);
 
@@ -30,6 +47,6 @@ void ev_level_next(state_t* state, ...);
 
 void ev_game_restart(state_t* state, ...);
 
-void event_dispatch(state_t* state, void (* callback)(state_t*, ...));
+void event_dispatch(state_t* state, enum ev_type type, void (* callback)(state_t*, ...));
 
 #endif //AGAME_EVENT_H

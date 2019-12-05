@@ -17,13 +17,14 @@
 #include "macro_definitions.h"
 #include "cleanup_functions.h"
 
+#define COLOR_WHITE (SDL_Color){255, 255, 255, 168}
 
 extern void draw_text(SDL_Renderer* renderer, TTF_Font* font, char const* text, int x, int y, SDL_Color* c) {
 	assert(renderer != (void*) 0);
 	assert(font != (void*) 0);
 	assert(text != (void*) 0);
 	SDL_Rect msg_rect;
-	SDL_Color color = {255, 255, 255, 255};
+	SDL_Color color = COLOR_WHITE;
 
 	if (c != NULL) {
 		color = *c;

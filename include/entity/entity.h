@@ -37,7 +37,7 @@ enum entities {
 	E_PLAYER,
 	E_LIGHT,
 	E_ENEMY,
-	E_ENEMY_SPAWNER,
+	E_SPAWNER,
 	E_PEW,
 };
 
@@ -54,12 +54,14 @@ typedef struct light {
 typedef struct enemy {
 	int next_search;
 	astack_t* path;
+	void* origin;
 } enemy_t;
 
-typedef struct enemy_spawner {
+typedef struct spawner {
 	int next_spawn;
 	int rate;
-} enemy_spawner_t;
+	int enemy_count;
+} spawner_t;
 
 typedef struct pew {
 	enum dir dir;
@@ -74,7 +76,7 @@ typedef struct entity {
 	union {
 		player_t player;
 		enemy_t enemy;
-		enemy_spawner_t espawner;
+		spawner_t spawner;
 		light_t light;
 		pew_t pew;
 	};
