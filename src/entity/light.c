@@ -15,7 +15,7 @@ float light_calc(entity_t* source, int x, int y, float current_light, state_t* s
 	a = 1.0f - (50.0f - (rand() % 25)) / 100.0f;
 	dist = dist_to(source->x, source->y, x, y);
 
-	switch (state->light) {
+	switch (state->light_mode) {
 		case L_NONE:
 			rel_light = 0.0f;
 			break;

@@ -35,13 +35,17 @@ typedef struct state {
 
 	int level_count;
 	int score;
-	
-	light_e light;
+
+	light_e light_mode;
 	ren_mode_e ren_mode;
 } state_t;
 
 void state_change_ren(state_t* state, int step);
 
 void state_change_light(state_t* state, int step);
+
+char const* get_ren_mode(enum render_mode mode);
+
+char const* get_light_mode(enum lights light);
 
 #endif //SDLGAME_STATE_H

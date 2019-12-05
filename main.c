@@ -409,6 +409,8 @@ void Render(state_t* state, SDL_Renderer* renderer, SDL_Texture* tex, TTF_Font* 
 	}
 	snprintf(text_buf, 127, "Level: %d | Score: %d", state->level_count + 1, state->score);
 	draw_text(renderer, font, text_buf, 10, 10, NULL);
+	snprintf(text_buf, 127, "Light: %s | Render: %s", get_light_mode(state->light_mode), get_ren_mode(state->ren_mode));
+	draw_text(renderer, font, text_buf, WIDTH - strnlen(text_buf, 127) * CHAR_W, 8, NULL);
 	draw_help(renderer, font);
 
 	#undef lvlxy
@@ -431,7 +433,7 @@ void init_game(state_t* state) {
 	spawner = spawner_new();
 	alist_add(state->entities, &spawner);
 
-	state->light = L_LOS;
+	state->light_mode = L_LOS;
 	state->ren_mode = REN_ALL;
 
 	event_dispatch(state, EV_GAME_RESTART, ev_game_restart);
