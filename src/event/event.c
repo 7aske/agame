@@ -11,8 +11,8 @@ void ev_game_start(state_t* state, ...) {
 
 	player = player_new(1, 1);
 	memcpy(&state->player, &player, sizeof(entity_t));
-	spawner = spawner_new();
-	alist_add(state->entities, &spawner);
+	// spawner = spawner_new();
+	// alist_add(state->entities, &spawner);
 
 	state->level.doodads = NULL;
 	state->level.maze = NULL;
@@ -71,11 +71,11 @@ void ev_enemy_spawn(state_t* state, ...) {
 	entity_t e;
 	va_start(argp, state);
 	x = va_arg(argp,
-	int);
+			   int);
 	y = va_arg(argp,
-	int);
+			   int);
 	origin = va_arg(argp,
-	void*);
+					void*);
 	va_end(argp);
 	if (!((x > -1 && x < state->level.w) || (y > -1 && y < state->level.h)))
 		while (state->level.maze[(y = rand() % state->level.h) * state->level.w + (x = rand() % state->level.w)] !=
@@ -146,5 +146,8 @@ char const* get_ev_type(event_t* ev) {
 			return "EV_LEVEL_NEXT";
 		case EV_GAME_RESTART:
 			return "EV_GAME_RESTART";
+		case EV_GAME_START:
+			return "EV_GAME_START";
+			break;
 	}
 }

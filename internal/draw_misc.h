@@ -49,7 +49,8 @@ extern void draw_help(SDL_Renderer* renderer, TTF_Font* font) {
 			* const line3 = "R - generate new maze",
 			* const line4 = "Q,E - toggle realm",
 			* const line5 = "1,2,3,0 - change realm",
-			* const line6 = "Spc - shoot";
+			* const line6 = "Spc - shoot",
+			* const line7 = "G - toggle graph";
 
 	SDL_Color color = {255, 255, 255, 128};
 
@@ -59,6 +60,7 @@ extern void draw_help(SDL_Renderer* renderer, TTF_Font* font) {
 	draw_text(renderer, font, line4, 5, HEIGHT - 4 * LINE_H, &color);
 	draw_text(renderer, font, line5, 5, HEIGHT - 5 * LINE_H, &color);
 	draw_text(renderer, font, line6, 5, HEIGHT - 6 * LINE_H, &color);
+	draw_text(renderer, font, line7, 5, HEIGHT - 6 * LINE_H, &color);
 }
 
 void draw_fps(SDL_Renderer* renderer, TTF_Font* font, int const* fps) {

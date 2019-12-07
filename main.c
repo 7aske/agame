@@ -148,6 +148,9 @@ void Input(state_t* state, SDL_Event* ev, volatile int* running) {
 				case SDL_SCANCODE_O:
 					overlay_solution(state->level.maze, state->level.exit_x, state->level.exit_y);
 					break;
+				case SDL_SCANCODE_G:
+					state->render_graph = !state->render_graph;
+					break;
 				case SDL_SCANCODE_L:
 					state_change_light(state, 1);
 					break;
@@ -411,9 +414,14 @@ void Render(state_t* state, SDL_Renderer* renderer, SDL_Texture* tex, TTF_Font* 
 			}
 		}
 	}
+
+	if (state->render_graph) {
+		draw_node(renderer, xoff, yoff, state->level.mgraph->start);
+	}
 	snprintf(text_buf, 127, "Level: %d | Score: %d", state->levelc + 1, state->score);
 	draw_text(renderer, font, text_buf, 10, 10, NULL);
-	snprintf(text_buf, 127, "Light: %s | Render: %s", get_light_mode(state->light_mode), get_ren_mode(state->ren_mode));
+	snprintf(text_buf, 127, "Graph: %s | Light: %s | Render: %s", state->render_graph ? "ON" : "OFF",
+			 get_light_mode(state->light_mode), get_ren_mode(state->ren_mode));
 	draw_text(renderer, font, text_buf, WIDTH - strnlen(text_buf, 127) * CHAR_W, 8, NULL);
 	draw_help(renderer, font);
 
@@ -425,6 +433,7 @@ void Render(state_t* state, SDL_Renderer* renderer, SDL_Texture* tex, TTF_Font* 
 void init_game(state_t* state) {
 	state->entities = alist_new(sizeof(entity_t));
 	state->events = queue_new(sizeof(event_t));
+	state->render_graph = 0;
 
 	event_dispatch(state, EV_GAME_START, ev_game_start);
 	event_dispatch(state, EV_GAME_RESTART, ev_game_restart);

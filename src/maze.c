@@ -130,8 +130,15 @@ maze_t maze_new() {
 	maze.maze = generate_maze();
 	maze.doodads = generate_doodads(maze.maze);
 	maze.maze[1 * LVL_W + 1] = B_FLOOR;
-	while (maze.maze[(y = (rand() % (LVL_H - SCR_H)) + SCR_H) * LVL_W + (x = (rand() % (LVL_W - SCR_W)) + SCR_W)] ==
-		   B_WALL);
+	// avoiding x % 0 SIGFPE
+	if (WRLD_H == 1 || WRLD_W == 1) {
+		while (maze.maze[(y = (rand() % LVL_H)) * LVL_W + (x = (rand() % LVL_W))] ==
+			   B_WALL);
+	} else {
+		while (maze.maze[(y = (rand() % (LVL_H - SCR_H)) + SCR_H) * LVL_W + (x = (rand() % (LVL_W - SCR_W)) + SCR_W)] ==
+			   B_WALL);
+	}
+
 	maze.exit_x = x;
 	maze.exit_y = y;
 	maze.maze[maze.exit_y * LVL_W + maze.exit_x] = B_EXIT;
@@ -139,6 +146,7 @@ maze_t maze_new() {
 	maze.w = LVL_W;
 	maze.b_wall = B_WALL;
 	maze.mgraph = to_graph(maze.maze, LVL_W, LVL_H, (char) B_WALL, x, y);
+	calc_heuristic(maze.mgraph->start, maze.mgraph->end);
 	assert(maze.mgraph->end->x == x && maze.mgraph->end->y == y);
 	assert(maze.mgraph->start->x == 1 && maze.mgraph->start->y == 1);
 	return maze;
@@ -183,10 +191,6 @@ char* generate_doodads(char const* maze) {
 		while (maze[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_WALL);
 		dd[dy * LVL_W + dx] = rand() % 2 ? D_PIPE1 : D_PIPE2;
 	}
-	// for (i = 0; i < TORCH_COUNT; ++i) {
-	// 	while (maze[(dy = rand() % LVL_H) * LVL_W + (dx = rand() % LVL_W)] != B_WALL);
-	// 	dd[dy * LVL_W + dx] = D_TORCH;
-	// }
 	return dd;
 }
 
