@@ -30,6 +30,7 @@ typedef enum sprites {
 	SPR_SKULL,
 	SPR_TORCH,
 	SPR_FBOY,
+	SPR_BOMB,
 } sprites_e;
 
 void load_sprite(sprites_e spr, spr_rect* src) {
@@ -114,6 +115,10 @@ void load_sprite(sprites_e spr, spr_rect* src) {
 			break;
 		case SPR_SKULL:
 			src->x = 1 * BSIZE_SPR;
+			src->y = 3 * BSIZE_SPR;
+			break;
+		case SPR_BOMB:
+			src->x = 15 * BSIZE_SPR;
 			src->y = 3 * BSIZE_SPR;
 			break;
 		default:

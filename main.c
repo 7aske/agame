@@ -184,8 +184,8 @@ void Input(state_t* state, SDL_Event* ev, volatile int* running) {
 
 void Event(state_t* state, double delta_time) {
 	event_t* ev;
-	while (!queue_isempty(state->event_queue)) {
-		ev = queue_dequeue(state->event_queue);
+	while (!queue_isempty(state->events)) {
+		ev = queue_dequeue(state->events);
 		assert(ev != NULL);
 		ev->callback(state);
 		printf("EVENT %s %ld\n", get_ev_type(ev), time(0));
@@ -287,10 +287,12 @@ void Render(state_t* state, SDL_Renderer* renderer, SDL_Texture* tex, TTF_Font* 
 
 			// rendering lights
 			light = 0.0f;
-			for (i = 0; i < alist_size(state->light_emitters); ++i) {
-				entity_t* source = alist_get(state->light_emitters, i);
-				if (dist_to(source->x, source->y, x + xoff, y + yoff) < 10) {
-					light = light_calc(source, x + xoff, y + yoff, light, state);
+			for (i = 0; i < alist_size(state->entities); ++i) {
+				entity_t* source = alist_get(state->entities, i);
+				if (source->type == E_LIGHT) {
+					if (dist_to(source->x, source->y, x + xoff, y + yoff) < 10) {
+						light = light_calc(source, x + xoff, y + yoff, light, state);
+					}
 				}
 			}
 			light = light_calc(&state->player, x + xoff, y + yoff, light, state);
@@ -363,28 +365,30 @@ void Render(state_t* state, SDL_Renderer* renderer, SDL_Texture* tex, TTF_Font* 
 				for (i = 0; i < alist_size(state->entities); ++i) {
 					entity_t* e = alist_get(state->entities, i);
 					assert(e != NULL);
-					switch (e->type) {
-						case E_ENEMY:
-							if (x + xoff == e->x && y + yoff == e->y) {
+					if (x + xoff == e->x && y + yoff == e->y) {
+						switch (e->type) {
+							case E_ENEMY:
 								load_sprite(SPR_ENEMY1, (spr_rect*) &src);
 								SDL_SetTextureColorMod(tex, light, light * 0.8 * (e->hp / E_DEF_HP),
 													   light * 0.5 * (e->hp / E_DEF_HP));
 								SDL_RenderCopy(renderer, tex, &src, &dest);
 								SDL_SetTextureColorMod(tex, light, light * 0.8, light * 0.5);
-							}
-							break;
-						case E_PEW:
-							if (x + xoff == e->x && y + yoff == e->y) {
+								break;
+							case E_PEW:
 								load_sprite(SPR_FBOY, (spr_rect*) &src);
 								dest.y -= 10;
 								SDL_RenderCopy(renderer, tex, &src, &dest);
 								dest.y += 10;
-							}
-							break;
+								break;
+							case E_LIGHT:
+								load_sprite(SPR_TORCH, (spr_rect*) &src);
+								SDL_RenderCopy(renderer, tex, &src, &dest);
+								break;
+						}
 					}
-
 				}
 			}
+
 			if (state->ren_mode == REN_SOLUTION || state->ren_mode == REN_ALL) {
 				if (lvlxy(0, 0) == B_PATH) {
 					load_sprite(SPR_COIN, (spr_rect*) &src);
@@ -407,7 +411,7 @@ void Render(state_t* state, SDL_Renderer* renderer, SDL_Texture* tex, TTF_Font* 
 			}
 		}
 	}
-	snprintf(text_buf, 127, "Level: %d | Score: %d", state->level_count + 1, state->score);
+	snprintf(text_buf, 127, "Level: %d | Score: %d", state->levelc + 1, state->score);
 	draw_text(renderer, font, text_buf, 10, 10, NULL);
 	snprintf(text_buf, 127, "Light: %s | Render: %s", get_light_mode(state->light_mode), get_ren_mode(state->ren_mode));
 	draw_text(renderer, font, text_buf, WIDTH - strnlen(text_buf, 127) * CHAR_W, 8, NULL);
@@ -419,22 +423,9 @@ void Render(state_t* state, SDL_Renderer* renderer, SDL_Texture* tex, TTF_Font* 
 
 
 void init_game(state_t* state) {
-	entity_t player;
-	entity_t spawner;
 	state->entities = alist_new(sizeof(entity_t));
-	state->light_emitters = alist_new(sizeof(entity_t));
-	state->event_queue = queue_new(sizeof(event_t));
+	state->events = queue_new(sizeof(event_t));
 
-	state->level.doodads = NULL;
-	state->level.maze = NULL;
-
-	player = player_new(1, 1);
-	memcpy(&state->player, &player, sizeof(entity_t));
-	spawner = spawner_new();
-	alist_add(state->entities, &spawner);
-
-	state->light_mode = L_LOS;
-	state->ren_mode = REN_ALL;
-
+	event_dispatch(state, EV_GAME_START, ev_game_start);
 	event_dispatch(state, EV_GAME_RESTART, ev_game_restart);
 }

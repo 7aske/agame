@@ -83,6 +83,10 @@ typedef struct entity {
 	enum entities type;
 } entity_t;
 
+extern int alist_rm_e_type_cmp(const void* e1, const void* e2, unsigned long size);
+
+extern void alist_rm_e_type(alist_t* list, enum entities type);
+
 extern int entity_move(entity_t* e, char const* lvl, int width, int bound, enum dir dir);
 
 

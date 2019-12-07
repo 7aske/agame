@@ -27,13 +27,12 @@ typedef enum lights {
 typedef struct state {
 	entity_t player;
 
-	alist_t* light_emitters;
 	alist_t* entities;
-	queue_t* event_queue;
+	queue_t* events;
 
 	maze_t level;
 
-	int level_count;
+	int levelc;
 	int score;
 
 	light_e light_mode;

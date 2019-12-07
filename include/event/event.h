@@ -9,17 +9,20 @@
 
 #include "state.h"
 #include "entity/enemy.h"
+#include "entity/player.h"
+#include "entity/spawner.h"
 
 enum ev_type {
 	EV_DEFAULT,
+	EV_LEVEL_RESTART,
+	EV_LEVEL_START,
+	EV_LEVEL_NEXT,
+	EV_GAME_RESTART,
+	EV_GAME_START,
 	EV_SCORE_INCR,
 	EV_SCORE_RESET,
 	EV_ENEMIES_DESTROY,
 	EV_ENEMY_SPAWN,
-	EV_LEVEL_RESTART,
-	EV_LEVEL_START,
-	EV_LEVEL_NEXT,
-	EV_GAME_RESTART
 } ev_type_e;
 
 
@@ -44,6 +47,8 @@ void ev_level_restart(state_t* state, ...);
 void ev_level_start(state_t* state, ...);
 
 void ev_level_next(state_t* state, ...);
+
+void ev_game_start(state_t* state, ...);
 
 void ev_game_restart(state_t* state, ...);
 

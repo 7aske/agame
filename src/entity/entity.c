@@ -42,3 +42,24 @@ int entity_move(entity_t* e, char const* lvl, int width, int bound, enum dir dir
 	return 0;
 }
 
+void alist_rm_e_type(alist_t* list, enum entities type) {
+	int x;
+	entity_t e;
+	e.type = type;
+	while ((x = alist_idxof_cmp(list, &e, alist_rm_e_type_cmp)) != -1) {
+		alist_rm_idx(list, x);
+	}
+}
+
+int alist_rm_e_type_cmp(const void* e1, const void* e2, unsigned long size) {
+	enum entities t1 = ((entity_t*) e1)->type;
+	enum entities t2 = ((entity_t*) e2)->type;
+	if (t1 > t2) {
+		return 1;
+	} else if (t1 < t2) {
+		return -1;
+	} else {
+		return 0;
+	}
+}
+

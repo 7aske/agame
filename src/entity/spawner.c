@@ -7,7 +7,7 @@
 int spawner_spawn(entity_t* e, state_t* state) {
 	assert(e != NULL && state != NULL);
 	assert(e->type == E_SPAWNER);
-	if (E_DEF_MAX_ENEMIES(state->level_count) <= e->spawner.enemy_count) {
+	if (E_DEF_MAX_ENEMIES(state->levelc) <= e->spawner.enemy_count) {
 		return 0;
 	}
 	if (e->spawner.next_spawn > 0) {
@@ -20,7 +20,7 @@ int spawner_spawn(entity_t* e, state_t* state) {
 	while (state->level.maze[(y = rand() % state->level.h) * state->level.w + (x = rand() % state->level.w)] !=
 		   B_FLOOR);
 	e->spawner.enemy_count++;
-	printf("SPAWNER SPAWN (%d, %d) %d/%d %ld\n", x, y, e->spawner.enemy_count, E_DEF_MAX_ENEMIES(state->level_count),
+	printf("SPAWNER SPAWN (%d, %d) %d/%d %ld\n", x, y, e->spawner.enemy_count, E_DEF_MAX_ENEMIES(state->levelc),
 		   time(0));
 	ev_enemy_spawn(state, x, y, e);
 	return 1;

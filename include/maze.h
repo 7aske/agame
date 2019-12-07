@@ -14,6 +14,7 @@
 #include <stdio.h>
 
 #include "macro_definitions.h"
+#include "graph.h"
 
 #define BRICK_COUNT 80
 #define GRATE_COUNT 30
@@ -21,6 +22,8 @@
 #define SKULL_COUNT 10
 #define PIPE_COUNT 30
 #define TORCH_COUNT 10
+
+#define NBIT(x, n) (x & ( 1 << n )) >> n
 
 enum blocks_e {
 	B_NONE,
@@ -40,10 +43,11 @@ enum doodads_e {
 	D_BRICK,
 	D_TORCH
 };
-
+//  000 00
 
 typedef struct maze {
 	char* maze;
+	struct mgraph* mgraph;
 	char* doodads;
 	int w;
 	int h;
@@ -64,7 +68,7 @@ extern void overlay_solution(char* maze, int exit_x, int exit_y);
 
 extern void maze_carve(char* maze, int width, int height, int x, int y);
 
-extern void maze_new(maze_t* maze);
+extern maze_t maze_new();
 
 extern void maze_clear(maze_t* maze);
 

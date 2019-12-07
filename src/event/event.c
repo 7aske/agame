@@ -5,29 +5,47 @@
 
 #include "event/event.h"
 
-void ev_level_start(state_t* state, ...) {
+void ev_game_start(state_t* state, ...) {
+	entity_t player;
+	entity_t spawner;
 
+	player = player_new(1, 1);
+	memcpy(&state->player, &player, sizeof(entity_t));
+	spawner = spawner_new();
+	alist_add(state->entities, &spawner);
+
+	state->level.doodads = NULL;
+	state->level.maze = NULL;
+
+	state->light_mode = L_LOS;
+	state->ren_mode = REN_ALL;
+}
+
+void ev_level_start(state_t* state, ...) {
 }
 
 void ev_level_restart(state_t* state, ...) {
-	int y, x;
+	#define LIGHT_COUNT 10
+	int y, x, i;
 	maze_clear(&state->level);
-	maze_new(&state->level);
-	alist_clear(state->light_emitters);
-
-	entity_t source;
-	for (y = 0; y < state->level.h; ++y) {
-		for (x = 0; x < state->level.w; ++x) {
-			if (state->level.doodads[y * state->level.w + x] == D_TORCH) {
-				source.x = x;
-				source.y = y;
-				source.light.intensity = 1.0f;
-				source.type = E_LIGHT;
-				alist_add(state->light_emitters, &source);
-			}
-		}
+	maze_t maze = maze_new(state);
+	memcpy(&state->level, &maze, sizeof(maze_t));
+	for (i = 0; i < alist_size(state->entities); i++) {
+		alist_rm_e_type(state->entities, E_LIGHT);
 	}
-	queue_clear(state->event_queue);
+
+	entity_t e;
+	for (i = 0; i < LIGHT_COUNT; ++i) {
+		while (state->level.maze[(y = rand() % state->level.h) * state->level.w + (x = rand() % state->level.w)] !=
+			   state->level.b_wall);
+		e.x = x;
+		e.y = y;
+		e.light.intensity = 1.0f;
+		e.type = E_LIGHT;
+		alist_add(state->entities, &e);
+	}
+
+	queue_clear(state->events);
 	state->player.x = 1;
 	state->player.y = 1;
 	ev_enemies_destroy(state);
@@ -36,13 +54,13 @@ void ev_level_restart(state_t* state, ...) {
 }
 
 void ev_level_next(state_t* state, ...) {
-	state->level_count++;
+	state->levelc++;
 	ev_level_restart(state);
 }
 
 void ev_game_restart(state_t* state, ...) {
 	ev_level_restart(state);
-	state->level_count = 0;
+	state->levelc = 0;
 	state->score = 0;
 }
 
@@ -52,9 +70,12 @@ void ev_enemy_spawn(state_t* state, ...) {
 	void* origin;
 	entity_t e;
 	va_start(argp, state);
-	x = va_arg(argp, int);
-	y = va_arg(argp, int);
-	origin = va_arg(argp, void*);
+	x = va_arg(argp,
+	int);
+	y = va_arg(argp,
+	int);
+	origin = va_arg(argp,
+	void*);
 	va_end(argp);
 	if (!((x > -1 && x < state->level.w) || (y > -1 && y < state->level.h)))
 		while (state->level.maze[(y = rand() % state->level.h) * state->level.w + (x = rand() % state->level.w)] !=
@@ -102,7 +123,7 @@ void event_dispatch(state_t* state, enum ev_type type, void (* callback)(state_t
 	event_t ev;
 	ev.type = type;
 	ev.callback = callback;
-	queue_enqueue(state->event_queue, &ev);
+	queue_enqueue(state->events, &ev);
 }
 
 char const* get_ev_type(event_t* ev) {
