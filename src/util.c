@@ -26,8 +26,12 @@ int bresenham(int x0, int y0, int x1, int y1, char const* level, int width, int 
 }
 
 
-float dist_to(int sx, int sy, int dx, int dy) {
+float euclidean_dist(int sx, int sy, int dx, int dy) {
 	return sqrtf(powf((float) sx - (float) dx, 2) + powf((float) sy - (float) dy, 2));
+}
+
+int manhattan_dist(int sx, int sy, int dx, int dy) {
+	return abs(sx - dx) + abs(sy - dy);
 }
 
 astack_t* backtrack_find(int x0, int y0, int x1, int y1, char const* level, int width, int height, int boundary) {

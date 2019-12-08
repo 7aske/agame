@@ -32,7 +32,7 @@ void enemy_randmove(entity_t* e, char const* lvl, int width, int bound) {
 }
 
 void
-enemy_search(entity_t* e, entity_t* tar, char const* level, int width, int height, int boundary, int force_search) {
+enemy_search(entity_t* e, entity_t* tar, maze_t const* level, int force_search) {
 	if (!force_search) {
 		if (e->enemy.next_search > 0) {
 			e->enemy.next_search -= (rand() % 3) + 1;
@@ -44,7 +44,9 @@ enemy_search(entity_t* e, entity_t* tar, char const* level, int width, int heigh
 	if (e->enemy.path != NULL) {
 		stack_destroy(e->enemy.path);
 	}
-	astack_t* path = backtrack_find(e->x, e->y, tar->x, tar->y, level, width, height, boundary);
+	// struct mgraph* temp = to_graph(level->maze, level->w, level->h, (char) level->b_wall, e->x, e->y, tar->x, tar->y);
+	astack_t* path = backtrack_find(e->x, e->y, tar->x, tar->y, level->maze, level->w, level->h, level->b_wall);
+	// astack_t* path = solve_astar(temp);
 	int* top = stack_peek(path);
 	printf("ENEMY SEARCH %s (%d, %d) %ld\n", force_search ? "FORCE" : "NOFORCE", top[0], top[1], time(0));
 	reverse_astack(path);

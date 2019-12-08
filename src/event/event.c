@@ -11,8 +11,8 @@ void ev_game_start(state_t* state, ...) {
 
 	player = player_new(1, 1);
 	memcpy(&state->player, &player, sizeof(entity_t));
-	// spawner = spawner_new();
-	// alist_add(state->entities, &spawner);
+	spawner = spawner_new();
+	alist_add(state->entities, &spawner);
 
 	state->level.doodads = NULL;
 	state->level.maze = NULL;
@@ -83,7 +83,7 @@ void ev_enemy_spawn(state_t* state, ...) {
 	e = enemy_new(0, 0, origin);
 	e.x = x;
 	e.y = y;
-	enemy_search(&e, &state->player, state->level.maze, state->level.w, state->level.h, state->level.b_wall, 1);
+	enemy_search(&e, &state->player, &state->level, 1);
 	alist_add(state->entities, &e);
 }
 

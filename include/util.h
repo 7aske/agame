@@ -24,7 +24,9 @@ extern int
 _backtrack_find(int x0, int y0, int x1, int y1, char const* level, char* visited, int width, int height, int boundary,
 				astack_t* stack);
 
-float dist_to(int sx, int sy, int dx, int dy);
+float euclidean_dist(int sx, int sy, int dx, int dy);
+
+int manhattan_dist(int sx, int sy, int dx, int dy);
 
 void reverse_astack(astack_t* astack);
 

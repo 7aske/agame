@@ -145,8 +145,9 @@ maze_t maze_new() {
 	maze.h = LVL_H;
 	maze.w = LVL_W;
 	maze.b_wall = B_WALL;
-	maze.mgraph = to_graph(maze.maze, LVL_W, LVL_H, (char) B_WALL, x, y);
-	calc_heuristic(maze.mgraph->start, maze.mgraph->end);
+	maze.mgraph = to_graph(maze.maze, LVL_W, LVL_H, (char) B_WALL, 1, 1, x, y);
+	astack_t* temp = solve_astar(maze.mgraph);
+	stack_destroy(temp);
 	assert(maze.mgraph->end->x == x && maze.mgraph->end->y == y);
 	assert(maze.mgraph->start->x == 1 && maze.mgraph->start->y == 1);
 	return maze;
@@ -212,5 +213,8 @@ void maze_clear(maze_t* maze) {
 	if (maze->doodads != NULL) {
 		free(maze->doodads);
 		maze->doodads = NULL;
+	}
+	if (maze->mgraph != NULL) {
+		mgraph_destroy(&maze->mgraph);
 	}
 }

@@ -11,8 +11,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <float.h>
+#include <limits.h>
 #include <SDL2/SDL.h>
 
+#include "structs/pqueue.h"
 #include "util.h"
 
 enum gnode_type {
@@ -21,32 +23,20 @@ enum gnode_type {
 	GNN = 3, // node
 };
 
-enum gnode_ntype {
-	NTYPE_N,
-	NTYPE_E,
-	NTYPE_S,
-	NTYPE_W,
-	NTYPE_NE,
-	NTYPE_NW,
-	NTYPE_NS,
-	NTYPE_ES,
-	NTYPE_EW,
-	NTYPE_SW,
-	NTYPE_NES,
-	NTYPE_NEW,
-	NTYPE_NSW,
-	NTYPE_ESW,
-	NTYPE_NONE,
-	NTYPE_ALL
-};
-
 struct gnode {
 	int x;
 	int y;
-	float h; // heuristic
+
+	int h; // heuristic
+	int f; // heuristic
+	int g; // heuristic
+
 	int visited;
 	int rendered;
-	int ntype;
+	int path;
+
+	struct gnode* came_from;
+
 	enum gnode_type type;
 	struct gnode* nodes[4];
 };
@@ -63,7 +53,14 @@ static struct gnode* gnode_new(int x, int y, enum gnode_type type) {
 	newgnode->y = y;
 	newgnode->visited = 0;
 	newgnode->rendered = 0;
-	newgnode->ntype = NTYPE_NONE;
+
+	newgnode->h = INT_MAX;
+	newgnode->f = INT_MAX;
+	newgnode->g = INT_MAX;
+
+	newgnode->came_from = NULL;
+	newgnode->path = 0;
+
 	newgnode->nodes[0] = NULL; // north
 	newgnode->nodes[1] = NULL; // east
 	newgnode->nodes[2] = NULL; // south
@@ -72,7 +69,8 @@ static struct gnode* gnode_new(int x, int y, enum gnode_type type) {
 }
 
 
-static struct mgraph* to_graph(char const* maze, int width, int height, char wall, int exit_x, int exit_y) {
+static struct mgraph*
+to_graph(char const* maze, int width, int height, char wall, int start_x, int start_y, int exit_x, int exit_y) {
 	int curr, prev, next, x, y;
 	struct mgraph* mgraph = (struct mgraph*) calloc(1, sizeof(struct mgraph));
 	struct gnode* node = NULL,
@@ -142,7 +140,7 @@ static struct mgraph* to_graph(char const* maze, int width, int height, char wal
 					leftnode = node;
 				}
 				mgraph->end = node;
-			} else if (x == 1 && y == 1) {
+			} else if (x == start_x && y == start_y) {
 				if (node != NULL) {
 					node->type = GNS;
 				} else {
@@ -174,54 +172,47 @@ static struct mgraph* to_graph(char const* maze, int width, int height, char wal
 	return mgraph;
 }
 
-static void assign_ntype(struct gnode* node) {
-
-	if (node->nodes[0] != NULL && node->nodes[1] == NULL && node->nodes[2] == NULL && node->nodes[3] == NULL) {
-		node->ntype = NTYPE_N;
-	} else if (node->nodes[0] == NULL && node->nodes[1] != NULL && node->nodes[2] == NULL && node->nodes[3] == NULL) {
-		node->ntype = NTYPE_E;
-	} else if (node->nodes[0] == NULL && node->nodes[1] == NULL && node->nodes[2] != NULL && node->nodes[3] == NULL) {
-		node->ntype = NTYPE_S;
-	} else if (node->nodes[0] == NULL && node->nodes[1] == NULL && node->nodes[2] == NULL && node->nodes[3] != NULL) {
-		node->ntype = NTYPE_W;
-	} else if (node->nodes[0] != NULL && node->nodes[1] != NULL && node->nodes[2] == NULL && node->nodes[3] == NULL) {
-		node->ntype = NTYPE_NE;
-	} else if (node->nodes[0] != NULL && node->nodes[1] == NULL && node->nodes[2] != NULL && node->nodes[3] == NULL) {
-		node->ntype = NTYPE_NS;
-	} else if (node->nodes[0] != NULL && node->nodes[1] == NULL && node->nodes[2] == NULL && node->nodes[3] != NULL) {
-		node->ntype = NTYPE_NW;
-	} else if (node->nodes[0] == NULL && node->nodes[1] != NULL && node->nodes[2] != NULL && node->nodes[3] == NULL) {
-		node->ntype = NTYPE_ES;
-	} else if (node->nodes[0] == NULL && node->nodes[1] != NULL && node->nodes[2] == NULL && node->nodes[3] != NULL) {
-		node->ntype = NTYPE_EW;
-	} else if (node->nodes[0] == NULL && node->nodes[1] == NULL && node->nodes[2] != NULL && node->nodes[3] != NULL) {
-		node->ntype = NTYPE_SW;
-	} else if (node->nodes[0] != NULL && node->nodes[1] != NULL && node->nodes[2] != NULL && node->nodes[3] == NULL) {
-		node->ntype = NTYPE_NES;
-	} else if (node->nodes[0] != NULL && node->nodes[1] != NULL && node->nodes[2] == NULL && node->nodes[3] != NULL) {
-		node->ntype = NTYPE_NEW;
-	} else if (node->nodes[0] != NULL && node->nodes[1] == NULL && node->nodes[2] != NULL && node->nodes[3] != NULL) {
-		node->ntype = NTYPE_NSW;
-	} else if (node->nodes[0] == NULL && node->nodes[1] != NULL && node->nodes[2] != NULL && node->nodes[3] != NULL) {
-		node->ntype = NTYPE_ESW;
-	} else if (node->nodes[0] != NULL && node->nodes[1] != NULL && node->nodes[2] != NULL && node->nodes[3] != NULL) {
-		node->ntype = NTYPE_ALL;
-	} else if (node->nodes[0] == NULL && node->nodes[1] == NULL && node->nodes[2] == NULL && node->nodes[3] == NULL) {
-		node->ntype = NTYPE_NONE;
-	}
-}
-
 static void draw_node(SDL_Renderer* ren, int xoff, int yoff, struct gnode* node) {
 	int x1, y1, x2, y2, i;
 	struct gnode* n;
 	SDL_Rect rect;
+	#define VISITED_COLOR SDL_SetRenderDrawColor(ren, 183, 65, 14 , 200);
+	#define PATH_COLOR SDL_SetRenderDrawColor(ren, 0, 158, 96, 200);
+	#define DEFAULT_COLOR SDL_SetRenderDrawColor(ren, 91, 52, 46, 200);
 
 	y1 = (node->y - yoff) * BSIZE + BSIZE / 2;
 	x1 = (node->x - xoff) * BSIZE + BSIZE / 2;
-
 	node->rendered = 1;
 
-	SDL_SetRenderDrawColor(ren, 255, 177, 124, 200);
+	for (i = 0; i < 4; ++i) {
+		n = node->nodes[i];
+		if (n != NULL) {
+			x2 = (n->x - xoff) * BSIZE + BSIZE / 2;
+			y2 = (n->y - yoff) * BSIZE + BSIZE / 2;
+			DEFAULT_COLOR
+			if (node->visited && n->visited)
+				VISITED_COLOR
+			if (node->path && n->path)
+				PATH_COLOR
+
+			SDL_RenderDrawLine(ren, x1, y1, x2, y2);
+			SDL_RenderDrawLine(ren, x1 - 1, y1 - 1, x2 - 1, y2 - 1);
+			SDL_SetRenderDrawColor(ren, 12, 12, 12, 255);
+			if (!n->rendered) {
+				draw_node(ren, xoff, yoff, n);
+			}
+		}
+	}
+
+
+	DEFAULT_COLOR
+	if (node->visited) {
+		VISITED_COLOR
+	}
+	if (node->path) {
+		PATH_COLOR
+	}
+
 	rect.x = x1 - 8;
 	rect.y = y1 - 8;
 	rect.w = 16;
@@ -229,47 +220,106 @@ static void draw_node(SDL_Renderer* ren, int xoff, int yoff, struct gnode* node)
 	SDL_RenderFillRect(ren, &rect);
 	SDL_SetRenderDrawColor(ren, 12, 12, 12, 255);
 
-
-	for (i = 0; i < 4; ++i) {
-		n = node->nodes[i];
-		if (n != NULL) {
-			x2 = (n->x - xoff) * BSIZE + BSIZE / 2;
-			y2 = (n->y - yoff) * BSIZE + BSIZE / 2;
-			SDL_SetRenderDrawColor(ren, 255, 177, 124, 255);
-			SDL_RenderDrawLine(ren, x1, y1, x2, y2);
-			SDL_RenderDrawLine(ren, x1 - 1, y1 - 1, x2 - 1, y2 - 1);
-			SDL_SetRenderDrawColor(ren, 12, 12, 12, 255);
-			if (!n->rendered) {
-				draw_node(ren, xoff, yoff, node->nodes[i]);
-			}
-		}
-	}
 	node->rendered = 0;
 }
 
-static void calc_heuristic(struct gnode* node, struct gnode* end) {
-	if (node->visited) {
-		return;
+static int gnodecmp(void const* n1, void const* n2, size_t size) {
+	int p1 = *(int*) n1;
+	int p2 = *(int*) n2;
+
+	if (p1 < p2) {
+		return 1;
+	} else if (p1 > p2) {
+		return -1;
+	} else {
+		return 0;
 	}
-	assert(node != NULL);
-	assert(end != NULL);
-	if (node == end) {
-		node->h = FLT_MAX;
-		return;
-	}
-	struct gnode* n;
-	int i;
-	float h = dist_to(node->x, node->y, end->x, end->y);
-	node->visited = 1;
-	// printf("%d %d\n", node->x, node->y);
-	printf("%f\n", h);
-	node->h = h;
-	for (i = 0; i < 4; ++i) {
-		n = node->nodes[i];
-		if (n != NULL) {
-			calc_heuristic(n, end);
+}
+
+static astack_t* solve_astar(struct mgraph* graph) {
+	struct gnode* start = graph->start;
+	struct gnode* end = graph->end;
+	struct gnode** node = NULL;
+	struct gnode* n = NULL;
+	int coord[2];
+	astack_t* solution = stack_new(sizeof(int[2]));
+	int inf = INT_MAX, i;
+
+	node = &graph->start;
+	(*node)->f = inf;
+	(*node)->came_from = NULL;
+	(*node)->path = 1;
+
+	coord[0] = graph->start->x;
+	coord[1] = graph->start->y;
+
+	pqueue_t* visited = pqueue_new(sizeof(struct gnode*), sizeof(int));
+	pqueue_set_cmp(visited, gnodecmp);
+
+	stack_push(solution, coord);
+	pqueue_enqueue(visited, &start, &(*node)->f);
+
+	while (!pqueue_isempty(visited)) {
+		node = (struct gnode**) pqueue_dequeue(visited);
+		(*node)->visited = 1;
+		if ((*node)->x == end->x && (*node)->y == end->y) {
+			printf("holy shit\n");
+			break;
 		}
+
+		for (i = 0; i < 4; ++i) {
+			n = (*node)->nodes[i];
+			if (n != NULL) {
+				n->h = (int) euclidean_dist(n->x, n->y, end->x, end->y);
+				n->g = (*node)->f + manhattan_dist(n->x, n->y, (*node)->x, (*node)->y);
+				n->f = n->g + n->h;
+				if (!n->visited) {
+					n->came_from = *node;
+					// printf("%p\n", *node);
+					pqueue_enqueue(visited, &n, &n->f);
+				}
+			}
+		}
+		free(node);
 	}
+	n = *node;
+	n->path = 1;
+	while (n->came_from != NULL) {
+		n->path = 1;
+		stack_push(solution, coord);
+		n = n->came_from;
+	}
+	coord[0] = end->x;
+	coord[1] = end->y;
+	stack_push(solution, coord);
+
+	pqueue_destroy(&visited);
+	return solution;
+}
+
+static void mgraph_destroy(struct mgraph** graph) {
+	queue_t* queue = queue_new(sizeof(struct gnode*));
+	int i;
+	struct gnode** node;
+	struct gnode* n;
+	struct gnode* start = (*graph)->start;
+
+	queue_enqueue(queue, &start);
+
+	while (!queue_isempty(queue)) {
+		node = queue_dequeue(queue);
+		for (i = 0; i < 4; ++i) {
+			n = (*node)->nodes[i];
+			if (n != NULL) {
+				n->nodes[(i + 2) % 4] = NULL;
+				queue_enqueue(queue, &n);
+			}
+		}
+		free(node);
+	}
+	queue_destroy(queue);
+	free(*graph);
+	*graph = NULL;
 }
 
 #endif //AGAME_GRAPH_H

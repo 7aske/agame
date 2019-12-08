@@ -241,8 +241,7 @@ void Update(state_t* state, double delta_time) {
 					event_dispatch(state, EV_SCORE_INCR, ev_score_incr);
 					j--, jm--;
 				} else {
-					enemy_search(e1, &(state->player), state->level.maze, state->level.w, state->level.h,
-								 state->level.b_wall, 0);
+					enemy_search(e1, &(state->player), &state->level, 0);
 					enemy_fpath(e1, state->level.maze, state->level.w, B_WALL);
 					if (state->player.x == e1->x && state->player.y == e1->y) {
 						event_dispatch(state, EV_GAME_RESTART, ev_game_restart);
@@ -293,7 +292,7 @@ void Render(state_t* state, SDL_Renderer* renderer, SDL_Texture* tex, TTF_Font* 
 			for (i = 0; i < alist_size(state->entities); ++i) {
 				entity_t* source = alist_get(state->entities, i);
 				if (source->type == E_LIGHT) {
-					if (dist_to(source->x, source->y, x + xoff, y + yoff) < 10) {
+					if (euclidean_dist(source->x, source->y, x + xoff, y + yoff) < 10) {
 						light = light_calc(source, x + xoff, y + yoff, light, state);
 					}
 				}
