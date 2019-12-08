@@ -30,7 +30,7 @@ static void draw_text(SDL_Renderer* renderer, TTF_Font* font, char const* text, 
 		color = *c;
 	}
 
-	SDL_Surface* msg_surf __attribute__((__cleanup__(_sdlfs))) = TTF_RenderText_Solid(font, text, color);
+	SDL_Surface* msg_surf __attribute__((__cleanup__(_sdlfs))) = TTF_RenderText_Blended(font, text, color);
 	SDL_Texture* msg_tex __attribute__((__cleanup__(_sdldt))) = SDL_CreateTextureFromSurface(renderer, msg_surf);
 
 	msg_rect.x = x;
@@ -44,13 +44,14 @@ static void draw_help(SDL_Renderer* renderer, TTF_Font* font) {
 
 
 	static const char
-			* const line1 = "O - toggle maze solve",
-			* const line2 = "L - toggle light",
-			* const line3 = "R - generate new maze",
-			* const line4 = "Q,E - toggle realm",
-			* const line5 = "1,2,3,0 - change realm",
-			* const line6 = "Spc - shoot",
-			* const line7 = "G,H - toggle graph";
+			* const line1 = "O-toggle maze solve",
+			* const line2 = "L-toggle light",
+			* const line3 = "R-generate new maze",
+			* const line4 = "Q,E-toggle realm",
+			* const line5 = "1,2,3,0-change realm",
+			* const line6 = "Space-shoot",
+			* const line7 = "G,H-toggle graph",
+			* const line8 = "N-toggle enemies";
 
 	SDL_Color color = {255, 255, 255, 128};
 
@@ -61,6 +62,7 @@ static void draw_help(SDL_Renderer* renderer, TTF_Font* font) {
 	draw_text(renderer, font, line5, 5, HEIGHT - 5 * LINE_H, &color);
 	draw_text(renderer, font, line6, 5, HEIGHT - 6 * LINE_H, &color);
 	draw_text(renderer, font, line7, 5, HEIGHT - 7 * LINE_H, &color);
+	draw_text(renderer, font, line8, 5, HEIGHT - 8 * LINE_H, &color);
 }
 
 static void draw_fps(SDL_Renderer* renderer, TTF_Font* font, int const* fps) {

@@ -7,6 +7,9 @@
 int spawner_spawn(entity_t* e, state_t* state) {
 	assert(e != NULL && state != NULL);
 	assert(e->type == E_SPAWNER);
+	if (!state->spawn_enemies) {
+		return 0;
+	}
 	if (E_DEF_MAX_ENEMIES(state->levelc) <= e->spawner.enemy_count) {
 		return 0;
 	}

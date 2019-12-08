@@ -210,7 +210,7 @@ static void draw_node(SDL_Renderer* ren, TTF_Font* font, int xoff, int yoff, str
 	y1 = (node->y - yoff) * BSIZE + BSIZE / 2;
 	x1 = (node->x - xoff) * BSIZE + BSIZE / 2;
 
-	if (ren_h) {
+	if (ren_h && node->visited) {
 		// drawing text has a big performance hit, so don't heuristics for nodes that are not on screen
 		if ((((node->x > xoff) && (node->x < xoff + SCR_W)) && ((node->y > yoff) && (node->y < yoff + SCR_H)))) {
 			snprintf(buf, 6, "%d", node->f);

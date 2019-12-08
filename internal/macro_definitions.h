@@ -23,6 +23,10 @@
 #define LVL_W (WRLD_W * SCR_W)
 #define LVL_H (WRLD_H * SCR_H)
 
+#define FONT_RES "res/UbuntuMono-R.ttf"
+#define SPRITES_RES "res/sprites.png"
+
+
 // utils print functions
 #define printd(x) printf("%d\n")
 #define printt(x, y) printf("(%d, %d)\n", x, y)

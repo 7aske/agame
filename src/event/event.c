@@ -13,6 +13,8 @@ void ev_game_start(state_t* state, ...) {
 	state->render_graph = 0;
 	state->render_graph_h = 0;
 
+	state->spawn_enemies = 1;
+
 	player = player_new(1, 1);
 	memcpy(&state->player, &player, sizeof(entity_t));
 	spawner = spawner_new();

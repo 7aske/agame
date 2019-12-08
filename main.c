@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
 
 	TTF_Init();
 	//Create window
-	window = SDL_CreateWindow("A Game",
+	window = SDL_CreateWindow(WINDOW_TITLE,
 							  SDL_WINDOWPOS_CENTERED,
 							  SDL_WINDOWPOS_CENTERED,
 							  WIDTH,
@@ -69,13 +69,13 @@ int main(int argc, char** argv) {
 	if (!renderer)
 		_sdlerr(renderer, window);
 
-	surface = IMG_Load("res/sprites.png");
+	surface = IMG_Load(SPRITES_RES);
 	texture = SDL_CreateTextureFromSurface(renderer, surface);
 	SDL_FreeSurface(surface);
 	if (!texture)
 		_sdlerr(renderer, window);
 
-	font = TTF_OpenFont("res/DejaVuSans-Bold.ttf", 32);
+	font = TTF_OpenFont(FONT_RES, 32);
 	if (!font)
 		fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
 
@@ -156,6 +156,12 @@ void Input(state_t* state, SDL_Event* ev, volatile int* running) {
 				case SDL_SCANCODE_G:
 					state->render_graph = !state->render_graph;
 					state_change_graph(state, 0);
+					break;
+				case SDL_SCANCODE_N:
+					state->spawn_enemies = !state->spawn_enemies;
+					if (!state->spawn_enemies) {
+						event_dispatch(state, EV_ENEMIES_DESTROY, ev_enemies_destroy);
+					}
 					break;
 				case SDL_SCANCODE_H:
 					state->render_graph_h = !state->render_graph_h;
@@ -429,12 +435,14 @@ void Render(state_t* state, SDL_Renderer* renderer, SDL_Texture* tex, TTF_Font* 
 		}
 	}
 
-	if (state->render_graph && state->curr_graph != NULL && state->curr_graph->start != NULL) {
+	if (state->render_graph && state->curr_graph != NULL && state->curr_graph->start != NULL &&
+		state->curr_graph->end != NULL) {
 		draw_node(renderer, font, xoff, yoff, state->curr_graph->start, state->render_graph_h);
 	}
 	snprintf(text_buf, 127, "Level: %d | Score: %d", state->levelc + 1, state->score);
 	draw_text(renderer, font, text_buf, 10, 10, NULL);
-	snprintf(text_buf, 127, "Graph: %s | Light: %s | Render: %s", state->render_graph ? "ON" : "OFF",
+	snprintf(text_buf, 127, "Enemies: %3s | Graph: %3s | Light: %4s | Render: %8s", state->spawn_enemies ? "ON" : "OFF",
+			 state->render_graph ? "ON" : "OFF",
 			 get_light_mode(state->light_mode), get_ren_mode(state->ren_mode));
 	draw_text(renderer, font, text_buf, WIDTH - strnlen(text_buf, 127) * CHAR_W, 8, NULL);
 	draw_help(renderer, font);

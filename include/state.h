@@ -32,6 +32,8 @@ typedef struct state {
 
 	maze_t level;
 
+	int spawn_enemies;
+
 	int levelc;
 	int score;
 
