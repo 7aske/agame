@@ -15,6 +15,7 @@
 #include <SDL2/SDL.h>
 
 #include "structs/pqueue.h"
+#include "draw_misc.h"
 #include "util.h"
 
 enum gnode_type {
@@ -44,19 +45,30 @@ struct gnode {
 struct mgraph {
 	struct gnode* start;
 	struct gnode* end;
+	llist_t* mem;
 };
 
-static struct gnode* gnode_new(int x, int y, enum gnode_type type) {
-	struct gnode* newgnode = (struct gnode*) malloc(sizeof(struct gnode));
+static void* nalloc(struct mgraph* graph, size_t size) {
+	void* chunk = malloc(size);
+	if (graph->mem == NULL) {
+		graph->mem = llist_new(sizeof(void*));
+	}
+	llist_add_front(graph->mem, &chunk);
+	return chunk;
+}
+
+static struct gnode* gnode_new(int x, int y, enum gnode_type type, struct mgraph* graph) {
+	struct gnode* newgnode = (struct gnode*) nalloc(graph, sizeof(struct gnode));
 	newgnode->type = type;
 	newgnode->x = x;
 	newgnode->y = y;
+
 	newgnode->visited = 0;
 	newgnode->rendered = 0;
 
-	newgnode->h = INT_MAX;
-	newgnode->f = INT_MAX;
-	newgnode->g = INT_MAX;
+	newgnode->h = 0;
+	newgnode->f = 0;
+	newgnode->g = 0;
 
 	newgnode->came_from = NULL;
 	newgnode->path = 0;
@@ -99,14 +111,14 @@ to_graph(char const* maze, int width, int height, char wall, int start_x, int st
 				if (next != wall) {
 					// path path path
 					if ((maze[(y - 1) * width + x] != wall) || (maze[(y + 1) * width + x] != wall)) {
-						node = gnode_new(x, y, GNN);
+						node = gnode_new(x, y, GNN, mgraph);
 						leftnode->nodes[1] = node;// left node east -> node
 						node->nodes[3] = leftnode; // nod west -> left node
 						leftnode = node;
 					}
 				} else {
 					// path path wall
-					node = gnode_new(x, y, GNN);
+					node = gnode_new(x, y, GNN, mgraph);
 					leftnode->nodes[1] = node;
 					node->nodes[3] = leftnode;
 					leftnode = node;
@@ -115,15 +127,15 @@ to_graph(char const* maze, int width, int height, char wall, int start_x, int st
 			} else {
 				// wall path path
 				if (next != wall) {
-					node = gnode_new(x, y, GNN);
+					node = gnode_new(x, y, GNN, mgraph);
 					leftnode = node;
 				} else {
 					// wall path wall
 					if ((maze[(y - 1) * width + x] == wall) || (maze[(y + 1) * width + x] == wall)) {
-						node = gnode_new(x, y, GNN);
+						node = gnode_new(x, y, GNN, mgraph);
 					} else {
 						if (x == exit_x && y == exit_y) {
-							node = gnode_new(x, y, GNE);
+							node = gnode_new(x, y, GNE, mgraph);
 							leftnode = node;
 						}
 					}
@@ -134,7 +146,7 @@ to_graph(char const* maze, int width, int height, char wall, int start_x, int st
 				if (node != NULL) {
 					node->type = GNE;
 				} else {
-					node = gnode_new(x, y, GNE);
+					node = gnode_new(x, y, GNE, mgraph);
 					leftnode->nodes[1] = node;
 					node->nodes[3] = leftnode;
 					leftnode = node;
@@ -144,7 +156,7 @@ to_graph(char const* maze, int width, int height, char wall, int start_x, int st
 				if (node != NULL) {
 					node->type = GNS;
 				} else {
-					node = gnode_new(x, y, GNS);
+					node = gnode_new(x, y, GNS, mgraph);
 					leftnode->nodes[1] = node;
 					node->nodes[3] = leftnode;
 					leftnode = node;
@@ -172,18 +184,23 @@ to_graph(char const* maze, int width, int height, char wall, int start_x, int st
 	return mgraph;
 }
 
-static void draw_node(SDL_Renderer* ren, int xoff, int yoff, struct gnode* node) {
+static void draw_node(SDL_Renderer* ren, TTF_Font* font, int xoff, int yoff, struct gnode* node, int ren_h) {
 	int x1, y1, x2, y2, i;
+	char buf[32];
 	struct gnode* n;
 	SDL_Rect rect;
 	#define VISITED_COLOR SDL_SetRenderDrawColor(ren, 183, 65, 14 , 200);
 	#define PATH_COLOR SDL_SetRenderDrawColor(ren, 0, 158, 96, 200);
 	#define DEFAULT_COLOR SDL_SetRenderDrawColor(ren, 91, 52, 46, 200);
+	#define TEXT_COLOR &(SDL_Color){253, 183, 100, 255}
 
 	y1 = (node->y - yoff) * BSIZE + BSIZE / 2;
 	x1 = (node->x - xoff) * BSIZE + BSIZE / 2;
 	node->rendered = 1;
-
+	if (ren_h) {
+		snprintf(buf, 32, "(%d)", node->f);
+		draw_text(ren, font, buf, x1 - 40, y1 - 32, TEXT_COLOR);
+	}
 	for (i = 0; i < 4; ++i) {
 		n = node->nodes[i];
 		if (n != NULL) {
@@ -199,7 +216,7 @@ static void draw_node(SDL_Renderer* ren, int xoff, int yoff, struct gnode* node)
 			SDL_RenderDrawLine(ren, x1 - 1, y1 - 1, x2 - 1, y2 - 1);
 			SDL_SetRenderDrawColor(ren, 12, 12, 12, 255);
 			if (!n->rendered) {
-				draw_node(ren, xoff, yoff, n);
+				draw_node(ren, font, xoff, yoff, n, ren_h);
 			}
 		}
 	}
@@ -243,10 +260,9 @@ static astack_t* solve_astar(struct mgraph* graph) {
 	struct gnode* n = NULL;
 	int coord[2];
 	astack_t* solution = stack_new(sizeof(int[2]));
-	int inf = INT_MAX, i;
+	int i;
 
 	node = &graph->start;
-	(*node)->f = inf;
 	(*node)->came_from = NULL;
 	(*node)->path = 1;
 
@@ -284,40 +300,30 @@ static astack_t* solve_astar(struct mgraph* graph) {
 	}
 	n = *node;
 	n->path = 1;
+	coord[0] = end->x;
+	coord[1] = end->y;
+	stack_push(solution, coord);
 	while (n->came_from != NULL) {
 		n->path = 1;
 		stack_push(solution, coord);
 		n = n->came_from;
 	}
-	coord[0] = end->x;
-	coord[1] = end->y;
-	stack_push(solution, coord);
 
 	pqueue_destroy(&visited);
 	return solution;
 }
 
 static void mgraph_destroy(struct mgraph** graph) {
-	queue_t* queue = queue_new(sizeof(struct gnode*));
-	int i;
-	struct gnode** node;
-	struct gnode* n;
-	struct gnode* start = (*graph)->start;
-
-	queue_enqueue(queue, &start);
-
-	while (!queue_isempty(queue)) {
-		node = queue_dequeue(queue);
-		for (i = 0; i < 4; ++i) {
-			n = (*node)->nodes[i];
-			if (n != NULL) {
-				n->nodes[(i + 2) % 4] = NULL;
-				queue_enqueue(queue, &n);
-			}
+	assert(graph != NULL);
+	if ((*graph)->mem != NULL) {
+		while (!llist_isempty((*graph)->mem)) {
+			void** ptr = llist_get_last((*graph)->mem);
+			free(*ptr);
+			llist_rm_back((*graph)->mem);
 		}
-		free(node);
+		llist_destroy((*graph)->mem);
 	}
-	queue_destroy(queue);
+
 	free(*graph);
 	*graph = NULL;
 }

@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
 	if (!texture)
 		_sdlerr(renderer, window);
 
-	font = TTF_OpenFont("res/DejaVuSans-Bold.ttf", 24);
+	font = TTF_OpenFont("res/DejaVuSans-Bold.ttf", 32);
 	if (!font)
 		fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
 
@@ -150,6 +150,9 @@ void Input(state_t* state, SDL_Event* ev, volatile int* running) {
 					break;
 				case SDL_SCANCODE_G:
 					state->render_graph = !state->render_graph;
+					break;
+				case SDL_SCANCODE_H:
+					state->render_graph_h = !state->render_graph_h;
 					break;
 				case SDL_SCANCODE_L:
 					state_change_light(state, 1);
@@ -415,7 +418,7 @@ void Render(state_t* state, SDL_Renderer* renderer, SDL_Texture* tex, TTF_Font* 
 	}
 
 	if (state->render_graph) {
-		draw_node(renderer, xoff, yoff, state->level.mgraph->start);
+		draw_node(renderer, font, xoff, yoff, state->level.mgraph->start, state->render_graph_h);
 	}
 	snprintf(text_buf, 127, "Level: %d | Score: %d", state->levelc + 1, state->score);
 	draw_text(renderer, font, text_buf, 10, 10, NULL);
@@ -433,6 +436,7 @@ void init_game(state_t* state) {
 	state->entities = alist_new(sizeof(entity_t));
 	state->events = queue_new(sizeof(event_t));
 	state->render_graph = 0;
+	state->render_graph_h = 0;
 
 	event_dispatch(state, EV_GAME_START, ev_game_start);
 	event_dispatch(state, EV_GAME_RESTART, ev_game_restart);

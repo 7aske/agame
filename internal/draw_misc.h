@@ -19,7 +19,7 @@
 
 #define COLOR_WHITE (SDL_Color){255, 255, 255, 168}
 
-extern void draw_text(SDL_Renderer* renderer, TTF_Font* font, char const* text, int x, int y, SDL_Color* c) {
+static void draw_text(SDL_Renderer* renderer, TTF_Font* font, char const* text, int x, int y, SDL_Color* c) {
 	assert(renderer != (void*) 0);
 	assert(font != (void*) 0);
 	assert(text != (void*) 0);
@@ -40,7 +40,7 @@ extern void draw_text(SDL_Renderer* renderer, TTF_Font* font, char const* text, 
 	SDL_RenderCopy(renderer, msg_tex, NULL, &msg_rect);
 }
 
-extern void draw_help(SDL_Renderer* renderer, TTF_Font* font) {
+static void draw_help(SDL_Renderer* renderer, TTF_Font* font) {
 
 
 	static const char
@@ -50,7 +50,7 @@ extern void draw_help(SDL_Renderer* renderer, TTF_Font* font) {
 			* const line4 = "Q,E - toggle realm",
 			* const line5 = "1,2,3,0 - change realm",
 			* const line6 = "Spc - shoot",
-			* const line7 = "G - toggle graph";
+			* const line7 = "G,H - toggle graph";
 
 	SDL_Color color = {255, 255, 255, 128};
 
@@ -60,10 +60,10 @@ extern void draw_help(SDL_Renderer* renderer, TTF_Font* font) {
 	draw_text(renderer, font, line4, 5, HEIGHT - 4 * LINE_H, &color);
 	draw_text(renderer, font, line5, 5, HEIGHT - 5 * LINE_H, &color);
 	draw_text(renderer, font, line6, 5, HEIGHT - 6 * LINE_H, &color);
-	draw_text(renderer, font, line7, 5, HEIGHT - 6 * LINE_H, &color);
+	draw_text(renderer, font, line7, 5, HEIGHT - 7 * LINE_H, &color);
 }
 
-void draw_fps(SDL_Renderer* renderer, TTF_Font* font, int const* fps) {
+static void draw_fps(SDL_Renderer* renderer, TTF_Font* font, int const* fps) {
 	char buf[32];
 	snprintf(buf, 31, "FPS %d", *fps);
 	draw_text(renderer, font, buf, 5, 5, NULL);
