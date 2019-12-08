@@ -62,13 +62,13 @@ static int _is_safe(char const* maze, int x, int y);
 
 static int _solve(char* maze, int x, int y, char* sol, int exit_x, int exit_y);
 
-static void maze_solve(char* maze, int exit_x, int exit_y);
+static void maze_solve(char* maze, int start_x, int start_y, int exit_x, int exit_y);
 
-extern void overlay_solution(char* maze, int exit_x, int exit_y);
+extern void overlay_solution(char* maze, int start_x, int start_y, int exit_x, int exit_y);
 
 extern void maze_carve(char* maze, int width, int height, int x, int y);
 
-extern maze_t maze_new();
+extern maze_t maze_new(int start_x, int start_y);
 
 extern void maze_clear(maze_t* maze);
 

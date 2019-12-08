@@ -91,5 +91,73 @@ char const* get_light_mode(enum lights light) {
 			return "Area";
 		case L_ALL:
 			return "All";
+		default:
+			return "None";
 	}
+}
+
+void state_change_graph(state_t* state, int dir) {
+	assert(state != NULL);
+	int i, j;
+	entity_t* e1 = NULL, * e2 = NULL, * curr_e = NULL;
+	if (dir == 1) {
+		for (i = 0; i < alist_size(state->entities); ++i) {
+			e1 = alist_get(state->entities, i);
+			if (e1->type == E_ENEMY) {
+				if (e1->enemy.mgraph == state->curr_graph) {
+					curr_e = e1;
+					break;
+				}
+			}
+		}
+		if (curr_e == NULL) {
+			for (i = 0; i < alist_size(state->entities); ++i) {
+				e1 = alist_get(state->entities, i);
+				if (e1->type == E_ENEMY) {
+					curr_e = e1;
+					state->curr_graph = e1->enemy.mgraph;
+					break;
+				}
+			}
+		}
+
+		for (i = alist_idxof_ptr(state->entities, curr_e) + 1; i < alist_size(state->entities); ++i) {
+			e1 = alist_get(state->entities, i);
+			if (e1->type == E_ENEMY) {
+				state->curr_graph = e1->enemy.mgraph;
+				break;
+			}
+		}
+	} else if (dir == -1) {
+		for (i = alist_size(state->entities) - 1; i >= 0; --i) {
+			e1 = alist_get(state->entities, i);
+			if (e1->type == E_ENEMY) {
+				if (e1->enemy.mgraph == state->curr_graph) {
+					curr_e = e1;
+					break;
+				}
+			}
+		}
+		if (curr_e == NULL) {
+			for (i = alist_size(state->entities) - 1; i >= 0; --i) {
+				e1 = alist_get(state->entities, i);
+				if (e1->type == E_ENEMY) {
+					curr_e = e1;
+					state->curr_graph = e1->enemy.mgraph;
+					break;
+				}
+			}
+		}
+
+		for (i = alist_idxof_ptr(state->entities, curr_e) - 1; i >= 0; --i) {
+			e1 = alist_get(state->entities, i);
+			if (e1->type == E_ENEMY) {
+				state->curr_graph = e1->enemy.mgraph;
+				break;
+			}
+		}
+	} else if (dir == 0) {
+		state->curr_graph = state->level.mgraph;
+	}
+
 }

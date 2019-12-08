@@ -47,7 +47,7 @@ int _solve(char* maze, int x, int y, char* sol, int exit_x, int exit_y) {
 	return 0;
 }
 
-void maze_solve(char* maze, int exit_x, int exit_y) {
+void maze_solve(char* maze, int start_x, int start_y, int exit_x, int exit_y) {
 	assert(maze != NULL);
 	assert(exit_x > 0);
 	assert(exit_y > 0);
@@ -56,15 +56,15 @@ void maze_solve(char* maze, int exit_x, int exit_y) {
 		free(solution);
 	solution = malloc(LVL_W * LVL_H);
 	memcpy(solution, maze, LVL_W * LVL_H);
-	_solve(maze, 1, 1, solution, exit_x, exit_y);
+	_solve(maze, start_x, start_y, solution, exit_x, exit_y);
 }
 
-void overlay_solution(char* maze, int exit_x, int exit_y) {
+void overlay_solution(char* maze, int start_x, int start_y, int exit_x, int exit_y) {
 	assert(maze != NULL);
 	assert(exit_x > 0);
 	assert(exit_y > 0);
 
-	maze_solve(maze, exit_x, exit_y);
+	maze_solve(maze, start_x, start_y, exit_x, exit_y);
 	for (int y = 0; y < LVL_H; ++y) {
 		for (int x = 0; x < LVL_W; ++x) {
 			if (solution[y * LVL_W + x] == B_PATH) {
@@ -123,7 +123,7 @@ void maze_carve(char* maze, int width, int height, int x, int y) {
 
 }
 
-maze_t maze_new() {
+maze_t maze_new(int start_x, int start_y) {
 	maze_t maze;
 	// assert(maze != (void*) 0);
 	int x, y;
@@ -145,11 +145,9 @@ maze_t maze_new() {
 	maze.h = LVL_H;
 	maze.w = LVL_W;
 	maze.b_wall = B_WALL;
-	maze.mgraph = to_graph(maze.maze, LVL_W, LVL_H, (char) B_WALL, 1, 1, x, y);
-	astack_t* temp = solve_astar(maze.mgraph);
-	stack_destroy(temp);
+	maze.mgraph = to_graph(maze.maze, LVL_W, LVL_H, (char) B_WALL, start_x, start_y, x, y);
 	assert(maze.mgraph->end->x == x && maze.mgraph->end->y == y);
-	assert(maze.mgraph->start->x == 1 && maze.mgraph->start->y == 1);
+	assert(maze.mgraph->start->x == start_x && maze.mgraph->start->y == start_y);
 	return maze;
 }
 

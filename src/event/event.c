@@ -9,6 +9,10 @@ void ev_game_start(state_t* state, ...) {
 	entity_t player;
 	entity_t spawner;
 
+	state->entities = alist_new(sizeof(entity_t));
+	state->render_graph = 0;
+	state->render_graph_h = 0;
+
 	player = player_new(1, 1);
 	memcpy(&state->player, &player, sizeof(entity_t));
 	spawner = spawner_new();
@@ -27,9 +31,15 @@ void ev_level_start(state_t* state, ...) {
 void ev_level_restart(state_t* state, ...) {
 	#define LIGHT_COUNT 10
 	int y, x, i;
+	state->curr_graph = NULL;
+	state->render_graph = 0;
+	queue_clear(state->events);
+	state->player.x = 1;
+	state->player.y = 1;
 	maze_clear(&state->level);
-	maze_t maze = maze_new(state);
+	maze_t maze = maze_new(state->player.x, state->player.y);
 	memcpy(&state->level, &maze, sizeof(maze_t));
+	stack_destroy(solve_astar(state->level.mgraph));
 	for (i = 0; i < alist_size(state->entities); i++) {
 		alist_rm_e_type(state->entities, E_LIGHT);
 	}
@@ -45,16 +55,15 @@ void ev_level_restart(state_t* state, ...) {
 		alist_add(state->entities, &e);
 	}
 
-	queue_clear(state->events);
-	state->player.x = 1;
-	state->player.y = 1;
-	ev_enemies_destroy(state);
 
-	overlay_solution(state->level.maze, state->level.exit_x, state->level.exit_y);
+	ev_enemies_destroy(state);
+	state->curr_graph = state->level.mgraph;
+	// overlay_solution(state->level.maze, state->player.x, state->player.y, state->level.exit_x, state->level.exit_y);
 }
 
 void ev_level_next(state_t* state, ...) {
 	state->levelc++;
+	state->score += 10 + state->levelc;
 	ev_level_restart(state);
 }
 
@@ -102,12 +111,26 @@ void ev_enemies_destroy(state_t* state, ...) {
 				if (eptr->enemy.path != NULL) {
 					stack_destroy(eptr->enemy.path);
 				}
+				if (eptr->enemy.mgraph != NULL) {
+					mgraph_destroy(&eptr->enemy.mgraph);
+				}
 				alist_rm_idx(state->entities, i--);
 				break;
 			case E_SPAWNER:
 				eptr->spawner.enemy_count = 0;
 				break;
 		}
+	}
+}
+
+void ev_recalculate_player_graph(state_t* state, ...) {
+	mgraph_destroy(&state->level.mgraph);
+	state->level.mgraph = to_graph(state->level.maze, state->level.w, state->level.h,
+								   (char) state->level.b_wall, state->player.x, state->player.y,
+								   state->level.exit_x, state->level.exit_y);
+	if (state->level.mgraph->start && state->level.mgraph->end) {
+		solve_astar(state->level.mgraph);
+		// stack_destroy();
 	}
 }
 
@@ -148,6 +171,7 @@ char const* get_ev_type(event_t* ev) {
 			return "EV_GAME_RESTART";
 		case EV_GAME_START:
 			return "EV_GAME_START";
-			break;
+		case EV_RECALCULATE_PLAYER_GRAPH:
+			return "EV_RECALCULATE_PLAYER_GRAPH";
 	}
 }

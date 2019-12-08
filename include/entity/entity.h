@@ -15,10 +15,10 @@
 #include "util.h"
 
 #define E_DEF_HP 100.0f
-#define E_DEF_NEXT_SEARCH 400
+#define E_DEF_NEXT_SEARCH 200
 #define E_DEF_NEXT_SPAWN 400
 #define E_DEF_MAX_ENEMIES(x) ((x) * 2 + 5)
-#define E_DEF_NEXT_MOVE 60
+#define E_DEF_NEXT_MOVE 40
 #define E_DEF_PNEXT_MOVE 5
 #define E_DEF_PNEXT_SHOT 20
 #define E_DEF_DMG 40.0f
@@ -53,6 +53,7 @@ typedef struct light {
 
 typedef struct enemy {
 	int next_search;
+	struct mgraph* mgraph;
 	astack_t* path;
 	void* origin;
 } enemy_t;

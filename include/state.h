@@ -39,7 +39,10 @@ typedef struct state {
 	ren_mode_e ren_mode;
 	int render_graph;
 	int render_graph_h;
+	struct mgraph* curr_graph;
 } state_t;
+
+void state_change_graph(state_t* state, int dir);
 
 void state_change_ren(state_t* state, int step);
 

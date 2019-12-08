@@ -106,6 +106,15 @@ static int alist_idxof(alist_t* list, void* elem) {
 	return -1;
 }
 
+static int alist_idxof_ptr(alist_t* list, void* elem) {
+	for (int i = 0; i < list->len; ++i) {
+		if (list->data + i * list->size == elem) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 static int alist_idxof_cmp(alist_t* list, void* elem, int( * cmpfunc)(const void*, const void*, unsigned long)) {
 	for (int i = 0; i < list->len; ++i) {
 		if (cmpfunc(list->data + i * list->size, elem, list->size) == 0) {

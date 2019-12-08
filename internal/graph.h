@@ -18,6 +18,12 @@
 #include "draw_misc.h"
 #include "util.h"
 
+#define VISITED_COLOR SDL_SetRenderDrawColor(ren, 183, 65, 14, 200);
+#define SPECIAL_COLOR SDL_SetRenderDrawColor(ren, 248, 177, 13, 200);
+#define PATH_COLOR    SDL_SetRenderDrawColor(ren, 0, 158, 96, 200);
+#define DEFAULT_COLOR SDL_SetRenderDrawColor(ren, 91, 52, 46, 200);
+#define TEXT_COLOR &(SDL_Color){253, 183, 100, 255}
+
 enum gnode_type {
 	GNS = 1, // start
 	GNE = 2, // end
@@ -48,6 +54,8 @@ struct mgraph {
 	llist_t* mem;
 };
 
+// got tired not being able to properly free the graph
+// malloc wrapper that saves all references to a list for easy free-ing
 static void* nalloc(struct mgraph* graph, size_t size) {
 	void* chunk = malloc(size);
 	if (graph->mem == NULL) {
@@ -102,6 +110,7 @@ to_graph(char const* maze, int width, int height, char wall, int start_x, int st
 			next = maze[y * width + x + 1];
 			node = NULL;
 
+			// if we're on the wall do nothing
 			if (curr == wall) {
 				continue;
 			}
@@ -134,7 +143,8 @@ to_graph(char const* maze, int width, int height, char wall, int start_x, int st
 					if ((maze[(y - 1) * width + x] == wall) || (maze[(y + 1) * width + x] == wall)) {
 						node = gnode_new(x, y, GNN, mgraph);
 					} else {
-						if (x == exit_x && y == exit_y) {
+						// one edge case where we'd miss the exit/start node
+						if ((x == exit_x && y == exit_y) || (x == start_x && y == start_y)) {
 							node = gnode_new(x, y, GNE, mgraph);
 							leftnode = node;
 						}
@@ -142,6 +152,8 @@ to_graph(char const* maze, int width, int height, char wall, int start_x, int st
 				}
 			}
 
+			// if we're at the exit/start nodes add them
+			// and update corresponding graph ptrs
 			if (x == exit_x && y == exit_y) {
 				if (node != NULL) {
 					node->type = GNE;
@@ -156,21 +168,25 @@ to_graph(char const* maze, int width, int height, char wall, int start_x, int st
 				if (node != NULL) {
 					node->type = GNS;
 				} else {
+					// printf("%d %d %d\n", prev, curr, next);
 					node = gnode_new(x, y, GNS, mgraph);
 					leftnode->nodes[1] = node;
 					node->nodes[3] = leftnode;
 					leftnode = node;
+
 				}
 				mgraph->start = node;
-
 			}
 
+
 			if (node != NULL) {
+				// connect the queued up top node
 				if ((maze[(y - 1) * width + x] != wall)) {
 					top = topnodes[x];
 					top->nodes[2] = node;
 					node->nodes[0] = top;
 				}
+				// set this as a possible top node if there is no wall below
 				if ((maze[(y + 1) * width + x] != wall)) {
 					topnodes[x] = node;
 				} else {
@@ -186,21 +202,24 @@ to_graph(char const* maze, int width, int height, char wall, int start_x, int st
 
 static void draw_node(SDL_Renderer* ren, TTF_Font* font, int xoff, int yoff, struct gnode* node, int ren_h) {
 	int x1, y1, x2, y2, i;
-	char buf[32];
+	char buf[6];
 	struct gnode* n;
 	SDL_Rect rect;
-	#define VISITED_COLOR SDL_SetRenderDrawColor(ren, 183, 65, 14 , 200);
-	#define PATH_COLOR SDL_SetRenderDrawColor(ren, 0, 158, 96, 200);
-	#define DEFAULT_COLOR SDL_SetRenderDrawColor(ren, 91, 52, 46, 200);
-	#define TEXT_COLOR &(SDL_Color){253, 183, 100, 255}
 
+	// convert block sized coordinates into acutal on-screen pixels
 	y1 = (node->y - yoff) * BSIZE + BSIZE / 2;
 	x1 = (node->x - xoff) * BSIZE + BSIZE / 2;
-	node->rendered = 1;
+
 	if (ren_h) {
-		snprintf(buf, 32, "(%d)", node->f);
-		draw_text(ren, font, buf, x1 - 40, y1 - 32, TEXT_COLOR);
+		// drawing text has a big performance hit, so don't heuristics for nodes that are not on screen
+		if ((((node->x > xoff) && (node->x < xoff + SCR_W)) && ((node->y > yoff) && (node->y < yoff + SCR_H)))) {
+			snprintf(buf, 6, "%d", node->f);
+			draw_text(ren, font, buf, x1 - 32, y1 - 24, TEXT_COLOR);
+		}
 	}
+
+	node->rendered = 1;
+
 	for (i = 0; i < 4; ++i) {
 		n = node->nodes[i];
 		if (n != NULL) {
@@ -215,31 +234,44 @@ static void draw_node(SDL_Renderer* ren, TTF_Font* font, int xoff, int yoff, str
 			SDL_RenderDrawLine(ren, x1, y1, x2, y2);
 			SDL_RenderDrawLine(ren, x1 - 1, y1 - 1, x2 - 1, y2 - 1);
 			SDL_SetRenderDrawColor(ren, 12, 12, 12, 255);
+			// recurse and draw non-rendered nodes
 			if (!n->rendered) {
 				draw_node(ren, font, xoff, yoff, n, ren_h);
 			}
 		}
 	}
 
-
+	// prepare rectangle to draw as a node
+	rect.x = x1 - 4;
+	rect.y = y1 - 4;
+	rect.w = 8;
+	rect.h = 8;
 	DEFAULT_COLOR
 	if (node->visited) {
 		VISITED_COLOR
 	}
 	if (node->path) {
-		PATH_COLOR
+		// yellow blocks for end and exit (a bit bigger)
+		if (node->type == GNS || node->type == GNE) {
+			SPECIAL_COLOR
+			rect.x = x1 - 8;
+			rect.y = y1 - 8;
+			rect.w = 16;
+			rect.h = 16;
+		} else {
+			PATH_COLOR
+		}
 	}
 
-	rect.x = x1 - 8;
-	rect.y = y1 - 8;
-	rect.w = 16;
-	rect.h = 16;
+
 	SDL_RenderFillRect(ren, &rect);
 	SDL_SetRenderDrawColor(ren, 12, 12, 12, 255);
 
 	node->rendered = 0;
 }
 
+// function used to compare node heuristic priorities
+// in A* algorithm
 static int gnodecmp(void const* n1, void const* n2, size_t size) {
 	int p1 = *(int*) n1;
 	int p2 = *(int*) n2;
@@ -259,6 +291,7 @@ static astack_t* solve_astar(struct mgraph* graph) {
 	struct gnode** node = NULL;
 	struct gnode* n = NULL;
 	int coord[2];
+	// initialize solution stack (used for enemies)
 	astack_t* solution = stack_new(sizeof(int[2]));
 	int i;
 
@@ -266,17 +299,19 @@ static astack_t* solve_astar(struct mgraph* graph) {
 	(*node)->came_from = NULL;
 	(*node)->path = 1;
 
+	// push the start node to the solution stack
 	coord[0] = graph->start->x;
 	coord[1] = graph->start->y;
+	stack_push(solution, coord);
 
 	pqueue_t* visited = pqueue_new(sizeof(struct gnode*), sizeof(int));
 	pqueue_set_cmp(visited, gnodecmp);
 
-	stack_push(solution, coord);
 	pqueue_enqueue(visited, &start, &(*node)->f);
 
 	while (!pqueue_isempty(visited)) {
 		node = (struct gnode**) pqueue_dequeue(visited);
+		(*node)->path = 0;
 		(*node)->visited = 1;
 		if ((*node)->x == end->x && (*node)->y == end->y) {
 			printf("holy shit\n");
@@ -286,12 +321,14 @@ static astack_t* solve_astar(struct mgraph* graph) {
 		for (i = 0; i < 4; ++i) {
 			n = (*node)->nodes[i];
 			if (n != NULL) {
+				// calculate heuristics based on distance to exit and
+				// relative distance from current node and last node
 				n->h = (int) euclidean_dist(n->x, n->y, end->x, end->y);
 				n->g = (*node)->f + manhattan_dist(n->x, n->y, (*node)->x, (*node)->y);
 				n->f = n->g + n->h;
 				if (!n->visited) {
+					// leave some breadcrumbs of how we got here
 					n->came_from = *node;
-					// printf("%p\n", *node);
 					pqueue_enqueue(visited, &n, &n->f);
 				}
 			}
@@ -299,16 +336,20 @@ static astack_t* solve_astar(struct mgraph* graph) {
 		free(node);
 	}
 	n = *node;
+	// free(node);
 	n->path = 1;
 	coord[0] = end->x;
 	coord[1] = end->y;
 	stack_push(solution, coord);
-	while (n->came_from != NULL) {
+
+	// reverse the solution queue into a stack;
+	while (n != NULL) {
 		n->path = 1;
+		coord[0] = n->x;
+		coord[1] = n->y;
 		stack_push(solution, coord);
 		n = n->came_from;
 	}
-
 	pqueue_destroy(&visited);
 	return solution;
 }
@@ -326,6 +367,44 @@ static void mgraph_destroy(struct mgraph** graph) {
 
 	free(*graph);
 	*graph = NULL;
+}
+
+static void connect_nodes(astack_t* nodes) {
+	int x, y;
+	astack_t* helper = stack_new(nodes->size);
+	int* elem, * next;
+	int newelem[2];
+	while (!stack_isempty(nodes)) {
+		elem = stack_pop(nodes);
+		// printf("%d %d\n", elem[0], elem[1]);
+		stack_push(helper, elem);
+		free(elem);
+	}
+	while (!stack_isempty(helper)) {
+		elem = stack_pop(helper);
+		x = elem[0];
+		y = elem[1];
+		stack_push(nodes, elem);
+		next = stack_peek(helper);
+		if (next != NULL) {
+			while (x != next[0] || y != next[1]) {
+				if (x < next[0]) {
+					x++;
+				} else if (x > next[0]) {
+					x--;
+				} else if (y < next[1]) {
+					y++;
+				} else if (y > next[1]) {
+					y--;
+				}
+				newelem[0] = x;
+				newelem[1] = y;
+				stack_push(nodes, newelem);
+			}
+		}
+		free(elem);
+	}
+	stack_destroy(helper);
 }
 
 #endif //AGAME_GRAPH_H

@@ -138,6 +138,10 @@ void Input(state_t* state, SDL_Event* ev, volatile int* running) {
 				case SDL_SCANCODE_D:
 				case SDL_SCANCODE_RIGHT:
 					player_move(&state->player, ev->key.keysym.scancode, &state->level);
+					if (state->player.x != state->level.mgraph->start->x &&
+						state->player.y != state->level.mgraph->start->y) {
+						event_dispatch(state, EV_RECALCULATE_PLAYER_GRAPH, ev_recalculate_player_graph);
+					}
 					break;
 				case SDL_SCANCODE_SPACE:
 					player_shoot(&state->player, state->entities);
@@ -146,10 +150,12 @@ void Input(state_t* state, SDL_Event* ev, volatile int* running) {
 					event_dispatch(state, EV_GAME_RESTART, ev_game_restart);
 					break;
 				case SDL_SCANCODE_O:
-					overlay_solution(state->level.maze, state->level.exit_x, state->level.exit_y);
+					overlay_solution(state->level.maze, state->player.x, state->player.y, state->level.exit_x,
+									 state->level.exit_y);
 					break;
 				case SDL_SCANCODE_G:
 					state->render_graph = !state->render_graph;
+					state_change_graph(state, 0);
 					break;
 				case SDL_SCANCODE_H:
 					state->render_graph_h = !state->render_graph_h;
@@ -165,6 +171,12 @@ void Input(state_t* state, SDL_Event* ev, volatile int* running) {
 					break;
 				case SDL_SCANCODE_K:
 					*running = 0;
+					break;
+				case SDL_SCANCODE_T:
+					state_change_graph(state, 1);
+					break;
+				case SDL_SCANCODE_Y:
+					state_change_graph(state, -1);
 					break;
 				case SDL_SCANCODE_1:
 					state->ren_mode = REN_BLOCKS;
@@ -417,8 +429,8 @@ void Render(state_t* state, SDL_Renderer* renderer, SDL_Texture* tex, TTF_Font* 
 		}
 	}
 
-	if (state->render_graph) {
-		draw_node(renderer, font, xoff, yoff, state->level.mgraph->start, state->render_graph_h);
+	if (state->render_graph && state->curr_graph != NULL && state->curr_graph->start != NULL) {
+		draw_node(renderer, font, xoff, yoff, state->curr_graph->start, state->render_graph_h);
 	}
 	snprintf(text_buf, 127, "Level: %d | Score: %d", state->levelc + 1, state->score);
 	draw_text(renderer, font, text_buf, 10, 10, NULL);
@@ -433,10 +445,7 @@ void Render(state_t* state, SDL_Renderer* renderer, SDL_Texture* tex, TTF_Font* 
 
 
 void init_game(state_t* state) {
-	state->entities = alist_new(sizeof(entity_t));
 	state->events = queue_new(sizeof(event_t));
-	state->render_graph = 0;
-	state->render_graph_h = 0;
 
 	event_dispatch(state, EV_GAME_START, ev_game_start);
 	event_dispatch(state, EV_GAME_RESTART, ev_game_restart);

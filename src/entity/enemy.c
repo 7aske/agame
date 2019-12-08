@@ -12,6 +12,8 @@ entity_t enemy_new(int x, int y, void* origin) {
 	newenemy.next_move = E_DEF_NEXT_MOVE;
 	newenemy.hp = E_DEF_HP;
 
+	newenemy.enemy.mgraph = NULL;
+
 	newenemy.enemy.next_search = E_DEF_NEXT_SEARCH;
 	newenemy.enemy.path = NULL;
 	newenemy.enemy.origin = origin;
@@ -44,12 +46,19 @@ enemy_search(entity_t* e, entity_t* tar, maze_t const* level, int force_search) 
 	if (e->enemy.path != NULL) {
 		stack_destroy(e->enemy.path);
 	}
-	// struct mgraph* temp = to_graph(level->maze, level->w, level->h, (char) level->b_wall, e->x, e->y, tar->x, tar->y);
-	astack_t* path = backtrack_find(e->x, e->y, tar->x, tar->y, level->maze, level->w, level->h, level->b_wall);
-	// astack_t* path = solve_astar(temp);
-	int* top = stack_peek(path);\
-	printf("ENEMY SEARCH %s (%d, %d) %ld\n", force_search ? "FORCE" : "NOFORCE", top[0], top[1], time(0));
-	reverse_astack(path);
+	if (e->enemy.mgraph != NULL) {
+		mgraph_destroy(&e->enemy.mgraph);
+	}
+
+	e->enemy.mgraph = to_graph(level->maze, level->w, level->h, (char) level->b_wall, e->x, e->y, tar->x, tar->y);
+	// astack_t* path = backtrack_find(e->x, e->y, tar->x, tar->y, level->maze, level->w, level->h, level->b_wall);
+	astack_t* path = solve_astar(e->enemy.mgraph);
+	connect_nodes(path);
+	int* top = stack_peek(path);
+	printf("ENEMY SEARCH %s (%d, %d) -> (%d %d) %ld\n", force_search ? "FORCE" : "NOFORCE", e->x, e->y, top[0], top[1],
+		   time(0));
+
+	// reverse_astack(path);
 	e->enemy.path = path;
 }
 
