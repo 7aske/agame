@@ -19,10 +19,10 @@ enum ev_type {
 	EV_LEVEL_NEXT,
 	EV_GAME_RESTART,
 	EV_GAME_START,
-	EV_RECALCULATE_PLAYER_GRAPH,
+	EV_RECALC_GRPH,
 	EV_SCORE_INCR,
 	EV_SCORE_RESET,
-	EV_ENEMIES_DESTROY,
+	EV_ENEMY_DESTROY,
 	EV_ENEMY_SPAWN,
 } ev_type_e;
 
@@ -49,7 +49,7 @@ void ev_level_start(state_t* state, ...);
 
 void ev_level_next(state_t* state, ...);
 
-void ev_recalculate_player_graph(state_t* state, ...);
+void ev_recalc_grph(state_t* state, ...);
 
 void ev_game_start(state_t* state, ...);
 

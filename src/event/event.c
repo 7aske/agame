@@ -73,6 +73,7 @@ void ev_game_restart(state_t* state, ...) {
 	ev_level_restart(state);
 	state->levelc = 0;
 	state->score = 0;
+	state->start_time = time(0);
 }
 
 void ev_enemy_spawn(state_t* state, ...) {
@@ -95,6 +96,9 @@ void ev_enemy_spawn(state_t* state, ...) {
 	e.x = x;
 	e.y = y;
 	enemy_search(&e, &state->player, &state->level, 1);
+	printf("ENEMY   SEARCH_%-7s (%02d, %02d) -> (%02d, %02d) %ld\n","FORCE", e.x,
+		   e.y, state->player.x, state->player.y,
+		   time(0) - state->start_time);
 	alist_add(state->entities, &e);
 }
 
@@ -125,7 +129,7 @@ void ev_enemies_destroy(state_t* state, ...) {
 	}
 }
 
-void ev_recalculate_player_graph(state_t* state, ...) {
+void ev_recalc_grph(state_t* state, ...) {
 	mgraph_destroy(&state->level.mgraph);
 	state->level.mgraph = to_graph(state->level.maze, state->level.w, state->level.h,
 								   (char) state->level.b_wall, state->player.x, state->player.y,
@@ -159,8 +163,8 @@ char const* get_ev_type(event_t* ev) {
 			return "EV_SCORE_INCR";
 		case EV_SCORE_RESET:
 			return "EV_SCORE_RESET";
-		case EV_ENEMIES_DESTROY:
-			return "EV_ENEMIES_DESTROY";
+		case EV_ENEMY_DESTROY:
+			return "EV_ENEMY_DESTROY";
 		case EV_ENEMY_SPAWN:
 			return "EV_ENEMY_SPAWN";
 		case EV_LEVEL_RESTART:
@@ -173,7 +177,7 @@ char const* get_ev_type(event_t* ev) {
 			return "EV_GAME_RESTART";
 		case EV_GAME_START:
 			return "EV_GAME_START";
-		case EV_RECALCULATE_PLAYER_GRAPH:
-			return "EV_RECALCULATE_PLAYER_GRAPH";
+		case EV_RECALC_GRPH:
+			return "EV_RECALC_GRPH";
 	}
 }

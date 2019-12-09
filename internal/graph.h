@@ -228,11 +228,44 @@ static void draw_node(SDL_Renderer* ren, TTF_Font* font, int xoff, int yoff, str
 			DEFAULT_COLOR
 			if (node->visited && n->visited)
 				VISITED_COLOR
-			if (node->path && n->path)
+			if (node->path && n->path) {
 				PATH_COLOR
+				if (y1 != y2 && !n->rendered) {
+					if (y1 > y2) {
+						// facing up
+						SDL_RenderDrawLine(ren, x2, y2 + 4, x2 + 8, y2 + 14);
+						SDL_RenderDrawLine(ren, x2, y2 + 4, x2 + 7, y2 + 14);
+						SDL_RenderDrawLine(ren, x2, y2 + 4, x2 - 8, y2 + 14);
+						SDL_RenderDrawLine(ren, x2, y2 + 4, x2 - 7, y2 + 14);
+					} else {
+						// facing down
+						SDL_RenderDrawLine(ren, x2, y2 - 4, x2 - 8, y2 - 14);
+						SDL_RenderDrawLine(ren, x2, y2 - 4, x2 - 7, y2 - 14);
+						SDL_RenderDrawLine(ren, x2, y2 - 4, x2 + 8, y2 - 14);
+						SDL_RenderDrawLine(ren, x2, y2 - 4, x2 + 7, y2 - 14);
+					}
+				} else if (x1 != x2 && !n->rendered) {
+					if (x1 > x2) {
+						// facing left
+						SDL_RenderDrawLine(ren, x2 + 4, y2, x2 + 14, y2 - 8);
+						SDL_RenderDrawLine(ren, x2 + 4, y2, x2 + 14, y2 - 7);
+						SDL_RenderDrawLine(ren, x2 + 4, y2, x2 + 14, y2 + 8);
+						SDL_RenderDrawLine(ren, x2 + 4, y2, x2 + 14, y2 + 7);
+					} else {
+						// facing right
+						SDL_RenderDrawLine(ren, x2 - 4, y2, x2 - 14, y2 - 8);
+						SDL_RenderDrawLine(ren, x2 - 4, y2, x2 - 14, y2 - 7);
+						SDL_RenderDrawLine(ren, x2 - 4, y2, x2 - 14, y2 + 8);
+						SDL_RenderDrawLine(ren, x2 - 4, y2, x2 - 14, y2 + 7);
+					}
+				}
+			}
+			if (!n->rendered) {
+				SDL_RenderDrawLine(ren, x1, y1, x2, y2);
+				SDL_RenderDrawLine(ren, x1 - 1, y1 - 1, x2 - 1, y2 - 1);
+			}
 
-			SDL_RenderDrawLine(ren, x1, y1, x2, y2);
-			SDL_RenderDrawLine(ren, x1 - 1, y1 - 1, x2 - 1, y2 - 1);
+
 			SDL_SetRenderDrawColor(ren, 12, 12, 12, 255);
 			// recurse and draw non-rendered nodes
 			if (!n->rendered) {
@@ -314,7 +347,7 @@ static astack_t* solve_astar(struct mgraph* graph) {
 		(*node)->path = 0;
 		(*node)->visited = 1;
 		if ((*node)->x == end->x && (*node)->y == end->y) {
-			printf("holy shit\n");
+			// printf("holy shit\n");
 			break;
 		}
 
@@ -323,9 +356,10 @@ static astack_t* solve_astar(struct mgraph* graph) {
 			if (n != NULL) {
 				// calculate heuristics based on distance to exit and
 				// relative distance from current node and last node
-				n->h = (int) euclidean_dist(n->x, n->y, end->x, end->y);
-				n->g = (*node)->f + manhattan_dist(n->x, n->y, (*node)->x, (*node)->y);
-				n->f = n->g + n->h;
+				n->h = (int) euclidean_dist(n->x, n->y, end->x, end->y) * 2;
+				n->g = manhattan_dist(n->x, n->y, (*node)->x, (*node)->y);
+				// apparently better results by not factoring in the previous node cost
+				n->f = /*(*node)->f +*/ n->g + n->h;
 				if (!n->visited) {
 					// leave some breadcrumbs of how we got here
 					n->came_from = *node;

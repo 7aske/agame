@@ -54,10 +54,6 @@ enemy_search(entity_t* e, entity_t* tar, maze_t const* level, int force_search) 
 	// astack_t* path = backtrack_find(e->x, e->y, tar->x, tar->y, level->maze, level->w, level->h, level->b_wall);
 	astack_t* path = solve_astar(e->enemy.mgraph);
 	connect_nodes(path);
-	int* top = stack_peek(path);
-	printf("ENEMY SEARCH %s (%d, %d) -> (%d %d) %ld\n", force_search ? "FORCE" : "NOFORCE", e->x, e->y, top[0], top[1],
-		   time(0));
-
 	// reverse_astack(path);
 	e->enemy.path = path;
 }

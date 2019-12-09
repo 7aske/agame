@@ -37,6 +37,8 @@ typedef struct state {
 	int levelc;
 	int score;
 
+	unsigned long start_time;
+
 	light_e light_mode;
 	ren_mode_e ren_mode;
 	int render_graph;

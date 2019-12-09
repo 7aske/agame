@@ -140,7 +140,7 @@ void Input(state_t* state, SDL_Event* ev, volatile int* running) {
 					player_move(&state->player, ev->key.keysym.scancode, &state->level);
 					if (state->player.x != state->level.mgraph->start->x &&
 						state->player.y != state->level.mgraph->start->y) {
-						event_dispatch(state, EV_RECALCULATE_PLAYER_GRAPH, ev_recalculate_player_graph);
+						event_dispatch(state, EV_RECALC_GRPH, ev_recalc_grph);
 					}
 					break;
 				case SDL_SCANCODE_SPACE:
@@ -160,7 +160,7 @@ void Input(state_t* state, SDL_Event* ev, volatile int* running) {
 				case SDL_SCANCODE_N:
 					state->spawn_enemies = !state->spawn_enemies;
 					if (!state->spawn_enemies) {
-						event_dispatch(state, EV_ENEMIES_DESTROY, ev_enemies_destroy);
+						event_dispatch(state, EV_ENEMY_DESTROY, ev_enemies_destroy);
 					}
 					break;
 				case SDL_SCANCODE_H:
@@ -212,7 +212,7 @@ void Event(state_t* state, double delta_time) {
 		ev = queue_dequeue(state->events);
 		assert(ev != NULL);
 		ev->callback(state);
-		printf("EVENT %s %ld\n", get_ev_type(ev), time(0));
+		printf("EVENT   %-15s                     %ld\n", get_ev_type(ev), time(0) - state->start_time);
 		free(ev);
 	}
 }
@@ -262,6 +262,11 @@ void Update(state_t* state, double delta_time) {
 					event_dispatch(state, EV_SCORE_INCR, ev_score_incr);
 					j--, jm--;
 				} else {
+					if (e1->enemy.next_search == 0){
+						printf("ENEMY   SEARCH_%-7s (%02d, %02d) -> (%02d, %02d) %ld\n", "NOFORCE", e1->x,
+							   e1->y, state->player.x, state->player.y,
+							   time(0) - state->start_time);
+					}
 					enemy_search(e1, &(state->player), &state->level, 0);
 					enemy_fpath(e1, state->level.maze, state->level.w, B_WALL);
 					if (state->player.x == e1->x && state->player.y == e1->y) {
@@ -454,7 +459,7 @@ void Render(state_t* state, SDL_Renderer* renderer, SDL_Texture* tex, TTF_Font* 
 
 void init_game(state_t* state) {
 	state->events = queue_new(sizeof(event_t));
-
+	state->start_time = time(0);
 	event_dispatch(state, EV_GAME_START, ev_game_start);
 	event_dispatch(state, EV_GAME_RESTART, ev_game_restart);
 }

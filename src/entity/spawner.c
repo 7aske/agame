@@ -23,8 +23,8 @@ int spawner_spawn(entity_t* e, state_t* state) {
 	while (state->level.maze[(y = rand() % state->level.h) * state->level.w + (x = rand() % state->level.w)] !=
 		   B_FLOOR);
 	e->spawner.enemy_count++;
-	printf("SPAWNER SPAWN (%d, %d) %d/%d %ld\n", x, y, e->spawner.enemy_count, E_DEF_MAX_ENEMIES(state->levelc),
-		   time(0));
+	printf("SPAWNER SPAWN          (%02d, %02d)    %02d/%02d    %ld\n", x, y, e->spawner.enemy_count, E_DEF_MAX_ENEMIES(state->levelc),
+		   time(0) - state->start_time);
 	ev_enemy_spawn(state, x, y, e);
 	return 1;
 }
