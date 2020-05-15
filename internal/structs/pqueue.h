@@ -23,7 +23,7 @@ typedef struct pqueue {
 	size_t psize;
 	llist_t* data;
 
-	int (* cmpfunc)(void const* p1, void const* p2, size_t size)
+	int (* cmpfunc)(void const* p1, void const* p2, size_t size);
 } pqueue_t;
 
 typedef struct pqeueue_node {
