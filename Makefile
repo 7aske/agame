@@ -16,7 +16,6 @@ build:
 		-lSDL2_image \
 		-lSDL2_ttf \
 		-lm \
-		-static \
 		main.c \
 		src/entity/enemy.c \
 		src/entity/entity.c \
