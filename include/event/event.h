@@ -12,7 +12,7 @@
 #include "entity/player.h"
 #include "entity/spawner.h"
 
-enum ev_type {
+static enum ev_type {
 	EV_DEFAULT,
 	EV_LEVEL_RESTART,
 	EV_LEVEL_START,
